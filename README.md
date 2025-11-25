@@ -1,6 +1,6 @@
 # 🅿️ Sistema de Gestión de Cadenas de Estacionamiento (SGCE)
 
-Este es un proyecto basado en arquitectura de **Microservicios** (o SOA) diseñado para administrar una cadena de múltiples estacionamientos (sucursales). Controla el registro de vehículos, el cálculo automático de tarifas, los cortes de caja y la generación de reportes operativos y consolidados.
+Este es un proyecto basado en arquitectura de **Microservicios**  diseñado para administrar una cadena de múltiples estacionamientos (sucursales). Controla el registro de vehículos, el cálculo automático de tarifas, los cortes de caja y la generación de reportes operativos y consolidados.
 
 ---
 
@@ -22,10 +22,10 @@ El sistema está diseñado como un conjunto de **servicios independientes** que 
 ### Requerimientos No Funcionales (RNF)
 
 El diseño cumple con los siguientes requerimientos clave:
-* [cite_start]**Tecnología:** Backend en **Node.js** con **JavaScript**[cite: 134, 238].
-* [cite_start]**Base de Datos:** Uso de motor de base de datos **relacional** (PostgreSQL)[cite: 135].
-* [cite_start]**Arquitectura:** Separación clara en capas de Datos, Dominio/Servicios y Exposición (REST/GraphQL)[cite: 136, 137, 138, 139].
-* [cite_start]**Seguridad:** Operaciones protegidas mediante **autenticación por rol** (JWT)[cite: 141].
+* **Tecnología:** Backend en **Node.js** con **JavaScript**[cite: 134, 238].
+* **Base de Datos:** Uso de motor de base de datos **relacional** (PostgreSQL)
+* **Arquitectura:** Separación clara en capas de Datos, Dominio/Servicios y Exposición (REST/GraphQL)[cite: 136, 137, 138, 139].
+* **Seguridad:** Operaciones protegidas mediante **autenticación por rol** (JWT).
 
 ---
 
