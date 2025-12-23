@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # Base de Datos Centralizada
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: parking_db
+    environment:
+      POSTGRES_USER: user_dev
+      POSTGRES_PASSWORD: secret_password
+      POSTGRES_DB: parking_master
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Microservicio Core Branch
+  ms-core-branch:
+    build: ./ms-core-branch
+    container_name: ms-core-branch
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_HOST=postgres_db
+      - DB_NAME=parking_master
+      - DB_USER=user_dev
+      - DB_PASS=secret_password
+      - JWT_SECRET=una_clave_secreta_2025
+    depends_on:
+      - postgres_db
+
+  # Microservicio Auth
+  ms-user-auth:
+    build: ./ms-user-auth
+    container_name: ms-user-auth
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - DB_HOST=postgres_db
+      - DB_NAME=parking_master
+      - DB_USER=user_dev
+      - DB_PASS=secret_password
+      - JWT_SECRET=una_clave_secreta_2025
+    depends_on:
+      - postgres_db
+
+  # Microservicio Tariff
+  ms-tariff-config:
+    build: ./ms-tariff-config
+    container_name: ms-tariff-config
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - DB_HOST=postgres_db
+      - DB_NAME=parking_master
+      - DB_USER=user_dev
+      - DB_PASS=secret_password
+      - JWT_SECRET=una_clave_secreta_2025
+      - AUTH_SERVICE_URL=http://ms-user-auth:3002/api/v1/auth
+    depends_on:
+      - postgres_db
+      - ms-user-auth
+
+volumes:
+  postgres_data:
