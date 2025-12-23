@@ -2,6 +2,7 @@
 /node_modules
 /dist
 /tmp
+node_modules
 
 # Logs
 npm-debug.log*
