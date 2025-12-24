@@ -7,6 +7,25 @@ const UserModel = db.User;
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key'; // Usar .env
 
 class AuthService {
+
+    async register(userData) {
+        // 1. Hashear la contraseña antes de guardar
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(userData.password, salt);
+
+        // 2. Crear el usuario en la base de datos
+        const newUser = await UserModel.create({
+            username: userData.username,
+            password_hash: hashedPassword, // Guardamos el hash, no el texto plano
+            role: userData.role,
+            name: userData.name,
+            branch_id: userData.branch_id || null
+        });
+
+        // 3. Retornar el usuario (sin el hash por seguridad)
+        const { password_hash, ...userWithoutPassword } = newUser.toJSON();
+        return userWithoutPassword;
+    }
     /**
      * Valida credenciales y genera un JWT (CU-16: Autenticación).
      * @param {string} username 
