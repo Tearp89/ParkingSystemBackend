@@ -24,7 +24,7 @@ El sistema está diseñado como un conjunto de **servicios independientes** que 
 El diseño cumple con los siguientes requerimientos clave:
 * **Tecnología:** Backend en **Node.js** con **JavaScript**[cite: 134, 238].
 * **Base de Datos:** Uso de motor de base de datos **relacional** (PostgreSQL)
-* **Arquitectura:** Separación clara en capas de Datos, Dominio/Servicios y Exposición (REST/GraphQL)[cite: 136, 137, 138, 139].
+* **Arquitectura:** Separación clara en capas de Datos, Dominio/Servicios y Exposición (REST/GraphQL).
 * **Seguridad:** Operaciones protegidas mediante **autenticación por rol** (JWT).
 
 ---
