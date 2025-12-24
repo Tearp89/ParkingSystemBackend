@@ -1,10 +1,11 @@
 version: '3.8'
 
 services:
-  # Base de Datos Centralizada
+  # 1. Base de Datos Centralizada
   postgres_db:
     image: postgres:15-alpine
     container_name: parking_db
+    restart: always
     environment:
       POSTGRES_USER: user_dev
       POSTGRES_PASSWORD: secret_password
@@ -14,23 +15,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # Microservicio Core Branch
-  ms-core-branch:
-    build: ./ms-core-branch
-    container_name: ms-core-branch
-    ports:
-      - "3001:3001"
-    environment:
-      - PORT=3001
-      - DB_HOST=postgres_db
-      - DB_NAME=parking_master
-      - DB_USER=user_dev
-      - DB_PASS=secret_password
-      - JWT_SECRET=una_clave_secreta_2025
-    depends_on:
-      - postgres_db
-
-  # Microservicio Auth
+  # 2. Microservicio Auth (El corazón de la seguridad)
   ms-user-auth:
     build: ./ms-user-auth
     container_name: ms-user-auth
@@ -42,11 +27,29 @@ services:
       - DB_NAME=parking_master
       - DB_USER=user_dev
       - DB_PASS=secret_password
-      - JWT_SECRET=una_clave_secreta_2025
+      - JWT_SECRET=una_clave_secreta_muy_larga_y_segura_2025
     depends_on:
       - postgres_db
 
-  # Microservicio Tariff
+  # 3. Microservicio Core Branch
+  ms-core-branch:
+    build: ./ms-core-branch
+    container_name: ms-core-branch
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_HOST=postgres_db
+      - DB_NAME=parking_master
+      - DB_USER=user_dev
+      - DB_PASS=secret_password
+      - JWT_SECRET=una_clave_secreta_muy_larga_y_segura_2025
+      - AUTH_SERVICE_URL=http://ms-user-auth:3002/api/v1/auth
+    depends_on:
+      - postgres_db
+      - ms-user-auth
+
+  # 4. Microservicio Tariff
   ms-tariff-config:
     build: ./ms-tariff-config
     container_name: ms-tariff-config
@@ -58,7 +61,65 @@ services:
       - DB_NAME=parking_master
       - DB_USER=user_dev
       - DB_PASS=secret_password
-      - JWT_SECRET=una_clave_secreta_2025
+      - JWT_SECRET=una_clave_secreta_muy_larga_y_segura_2025
+      - AUTH_SERVICE_URL=http://ms-user-auth:3002/api/v1/auth
+    depends_on:
+      - postgres_db
+      - ms-user-auth
+
+  # 5. Microservicio Operation Ticket
+  ms-operation-ticket:
+    build: ./ms-operation-ticket
+    container_name: ms-operation-ticket
+    ports:
+      - "3004:3004"
+    environment:
+      - PORT=3004
+      - DB_HOST=postgres_db
+      - DB_NAME=parking_master
+      - DB_USER=user_dev
+      - DB_PASS=secret_password
+      - JWT_SECRET=una_clave_secreta_muy_larga_y_segura_2025
+      - AUTH_SERVICE_URL=http://ms-user-auth:3002/api/v1/auth
+      - TARIFF_SERVICE_URL=http://ms-tariff-config:3003/api/v1/tariffs
+      - BRANCH_SERVICE_URL=http://ms-core-branch:3001/api/v1/branches
+    depends_on:
+      - postgres_db
+      - ms-user-auth
+      - ms-tariff-config
+
+  # 6. Microservicio Financial Cash
+  ms-financial-cash:
+    build: ./ms-financial-cash
+    container_name: ms-financial-cash
+    ports:
+      - "3005:3005"
+    environment:
+      - PORT=3005
+      - DB_HOST=postgres_db
+      - DB_NAME=parking_master
+      - DB_USER=user_dev
+      - DB_PASS=secret_password
+      - JWT_SECRET=una_clave_secreta_muy_larga_y_segura_2025
+      - AUTH_SERVICE_URL=http://ms-user-auth:3002/api/v1/auth
+      - TICKET_SERVICE_URL=http://ms-operation-ticket:3004/api/v1/tickets
+    depends_on:
+      - postgres_db
+      - ms-operation-ticket
+
+  # 7. Microservicio Reporting
+  ms-reporting:
+    build: ./ms-reporting
+    container_name: ms-reporting
+    ports:
+      - "3006:3006"
+    environment:
+      - PORT=3006
+      - DB_HOST=postgres_db
+      - DB_NAME=parking_master
+      - DB_USER=user_dev
+      - DB_PASS=secret_password
+      - JWT_SECRET=una_clave_secreta_muy_larga_y_segura_2025
       - AUTH_SERVICE_URL=http://ms-user-auth:3002/api/v1/auth
     depends_on:
       - postgres_db

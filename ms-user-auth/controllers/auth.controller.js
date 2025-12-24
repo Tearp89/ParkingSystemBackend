@@ -30,3 +30,13 @@ exports.verifyToken = async (req, res) => {
         return res.status(401).json({ message: error.message || 'Token inválido.' });
     }
 };
+
+// ms-user-auth/controllers/auth.controller.js
+exports.register = async (req, res) => {
+    try {
+        const user = await authService.register(req.body);
+        res.status(201).json({ message: 'Usuario creado con éxito', user });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
