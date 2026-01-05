@@ -11,5 +11,6 @@ router.post('/calculate', verifyJWT, tariffController.getCalculation);
 
 // CU-08: Ver historial (ADMIN o SUPERVISOR) [cite: 73]
 router.get('/history/:branchId', verifyJWT, authorize('ADMIN', 'SUPERVISOR'), tariffController.getHistory);
+router.patch('/:id/status', verifyJWT, tariffController.updateStatus);
 
 module.exports = router;

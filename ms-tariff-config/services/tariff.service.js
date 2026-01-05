@@ -1,6 +1,30 @@
 const db = require('../models');
 
 class TariffService {
+
+    /**
+     * CU-07: Configurar nueva tarifa.
+     * Ahora solo crea la tarifa. No desactiva ninguna otra automáticamente.
+     */
+    async createTariff(data) {
+        // Simplemente creamos la nueva entrada en el historial.
+        // El modelo ya tiene active: true por defecto
+        return await db.Tariff.create({
+            ...data,
+            valid_from: data.valid_from || new Date(),
+            active: true // La nueva se crea activa, pero no toca las demás
+        });
+    }
+
+    /**
+     * Nuevo método para cambiar el estado manualmente (Activar/Desactivar)
+     */
+    async updateStatus(tariff_id, active) {
+        return await db.Tariff.update(
+            { active },
+            { where: { tariff_id } }
+        );
+    }
     /**
      * Calcula el importe basado en minutos y tipo de vehículo (RF-05).
      */
@@ -52,6 +76,8 @@ class TariffService {
             tariff_id: tariff.tariff_id
         };
     }
+
+    
 }
 
 module.exports = new TariffService();
