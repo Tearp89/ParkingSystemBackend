@@ -11,43 +11,45 @@ class TicketService {
     /**
      * CU-03: Registrar entrada de vehículo
      */
- async registerEntry(branchId, plate, spotId, vehicleTypeId) {
-    // 1. Validar si el vehículo ya está adentro
-    const active = await db.Ticket.findOne({
-        where: { vehicle_plate: plate, status: 'ACTIVE' }
-    });
-    if (active) throw new Error("El vehículo ya tiene una sesión activa.");
+    async registerEntry(branchId, plate, spotId, vehicleTypeId) {
+        // 1. Validar si el vehículo ya está adentro
+        const active = await db.Ticket.findOne({
+            where: { vehicle_plate: plate, status: 'ACTIVE' }
+        });
+        if (active) throw new Error("El vehículo ya tiene una sesión activa.");
 
-    // 2. NUEVA VALIDACIÓN: Verificar si el lugar está ocupado en la base de datos de tickets
-    // Esto evita que dos procesos usen el mismo spot_id al mismo tiempo
-    const spotOccupied = await db.Ticket.findOne({
-        where: { spot_id: spotId, status: 'ACTIVE' }
-    });
-    if (spotOccupied) throw new Error("Este lugar acaba de ser ocupado. Elige otro.");
+        // 2. NUEVA VALIDACIÓN: Verificar si el lugar está ocupado en la base de datos de tickets
+        // Esto evita que dos procesos usen el mismo spot_id al mismo tiempo
+        const spotOccupied = await db.Ticket.findOne({
+            where: { spot_id: spotId, status: 'ACTIVE' }
+        });
+        if (spotOccupied) throw new Error("Este lugar acaba de ser ocupado. Elige otro.");
 
-    // 3. Crear el ticket
-    const ticket = await db.Ticket.create({
-        branch_id: branchId,
-        vehicle_plate: plate,
-        spot_id: spotId,
-        vehicle_type_id: vehicleTypeId,
-        status: 'ACTIVE',
-        entry_time: new Date()
-    });
+        // 3. Crear el ticket
+        const ticket = await db.Ticket.create({
+            branch_id: branchId,
+            vehicle_plate: plate,
+            spot_id: spotId,
+            vehicle_type_id: vehicleTypeId,
+            status: 'ACTIVE',
+            entry_time: new Date()
+        });
 
-    // 4. Sincronización (MS-CORE-BRANCH)
-    try {
-        // Asegúrate que la URL en this.BRANCH_SVC sea: http://ms-core-branch:3001/api/v1/branches
-        // Si el router de branch tiene '/spots/:id/occupancy', revisa si no sobra la palabra 'branches'
-        const baseUrl = this.BRANCH_SVC.replace('/branches', '');
-        await axios.put(`${baseUrl}/spots/${spotId}/occupancy`, { isOccupied: true });
-    } catch (error) {
-        console.error("URL intentada:", `${this.BRANCH_SVC}/spots/${spotId}/occupancy`);
-        console.error("Error al sincronizar ocupación:", error.message);
+        // 4. Sincronización (MS-CORE-BRANCH)
+        try {
+            // Asegúrate que la URL en this.BRANCH_SVC sea: http://ms-core-branch:3001/api/v1/branches
+            // Si el router de branch tiene '/spots/:id/occupancy', revisa si no sobra la palabra 'branches'
+            console.log(spotId);
+            await axios.put(`${this.BRANCH_SVC}/spots/${spotId}/occupancy`, {
+                isOccupied: true
+            });
+        } catch (error) {
+            console.error("URL intentada:", `${this.BRANCH_SVC}/spots/${spotId}/occupancy`);
+            console.error("Error al sincronizar ocupación:", error.message);
+        }
+
+        return ticket;
     }
-
-    return ticket;
-}
 
     /**
      * CU-04: Consultar tickets abiertos (Patio)
@@ -112,7 +114,7 @@ class TicketService {
         const updatedTicket = await ticket.update({
             status: 'PAID',
             exit_time: paymentData.exit_time,
-            total_amount: paymentData.total_amount        
+            total_amount: paymentData.total_amount
         });
 
         // ACTUALIZACIÓN: Notificar a ms-core-branch que el lugar se LIBERÓ

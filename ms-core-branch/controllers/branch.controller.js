@@ -1,3 +1,4 @@
+const db = require('../models');
 // ms-core-branch/controllers/branch.controller.js
 const branchService = require('../services/branch.service');
 
