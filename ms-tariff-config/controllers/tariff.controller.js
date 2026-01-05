@@ -36,3 +36,23 @@ exports.getHistory = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+/**
+ * NUEVO MÉTODO: Permite cambiar el estado de una tarifa específica.
+ * Responde a la lógica de activar/desactivar manualmente desde el historial.
+ */
+exports.updateStatus = async (req, res) => {
+    try {
+        const { id } = req.params; // ID de la tarifa
+        const { active } = req.body; // Nuevo estado (true/false)
+
+        if (typeof active !== 'boolean') {
+            return res.status(400).json({ error: "El campo 'active' debe ser booleano" });
+        }
+
+        await tariffService.updateStatus(id, active);
+        res.json({ message: `Tarifa ${active ? 'activada' : 'desactivada'} correctamente.` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};

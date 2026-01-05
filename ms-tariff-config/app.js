@@ -9,14 +9,27 @@ const PORT = process.env.PORT || 3003;
 
 app.use(cors({
   origin: 'http://localhost:5173', // Permite solo tu frontend
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json());
 
+app.use(cors({
+  origin: 'http://localhost:5173', // Permite solo tu frontend
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 // Rutas
 app.use('/api/v1/tariffs', tariffRoutes);
+
+db.sequelize.sync({ alter: true })
+  .then(() => {
+    console.log('Base de datos de Tarifas sincronizada (Columna vehicle_type_id actualizada)');
+  })
+  .catch(err => {
+    console.error('Error al sincronizar la base de datos:', err);
+  });
 
 async function startServer() {
     try {
