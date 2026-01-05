@@ -1,59 +1,120 @@
 const db = require('../models');
 const axios = require('axios');
+const { Op } = require('sequelize');
 
 class TicketService {
-    // URLs de otros servicios (Configurar en .env)
     constructor() {
         this.BRANCH_SVC = process.env.BRANCH_SERVICE_URL || 'http://localhost:3001/api/v1/branches';
         this.TARIFF_SVC = process.env.TARIFF_SERVICE_URL || 'http://localhost:3003/api/v1/tariffs';
     }
 
     /**
-     * Registrar entrada de vehículo (CU-03)
+     * CU-03: Registrar entrada de vehículo
      */
-    async registerEntry(branchId, plate, vehicleTypeId) {
-        // 1. Validar que la placa no tenga un ticket activo
-        const active = await db.Ticket.findOne({ where: { vehicle_plate: plate, status: 'ACTIVE' } });
+    async registerEntry(branchId, plate, spotId) {
+        const active = await db.Ticket.findOne({ 
+            where: { vehicle_plate: plate, status: 'ACTIVE' } 
+        });
         if (active) throw new Error("El vehículo ya tiene una sesión activa.");
-
-        // 2. TODO: Llamar a ms-core-branch para asignar un spot disponible
-        const spotId = "uuid-de-ejemplo-de-spot"; // Aquí iría la lógica de asignación
 
         const ticket = await db.Ticket.create({
             branch_id: branchId,
             vehicle_plate: plate,
             spot_id: spotId,
-            status: 'ACTIVE'
+            status: 'ACTIVE',
+            entry_time: new Date()
         });
+
+        try {
+            await axios.put(`${this.BRANCH_SVC}/spots/${spotId}/occupancy`, { isOccupied: true });
+        } catch (error) {
+            console.error("Error al sincronizar ocupación en entrada:", error.message);
+            // Opcional: Podrías revertir la creación del ticket si la sincronización falla
+        }
 
         return ticket;
     }
 
     /**
-     * Calcular cobro y preparar salida (CU-05)
+     * CU-04: Consultar tickets abiertos (Patio)
+     */
+    async getActiveTickets(branchId, filters = {}) {
+        const where = { branch_id: branchId, status: 'ACTIVE' };
+        
+        if (filters.plate) where.vehicle_plate = { [Op.iLike]: `%${filters.plate}%` };
+        if (filters.spot_id) where.spot_id = filters.spot_id;
+
+        return await db.Ticket.findAll({ 
+            where, 
+            order: [['entry_time', 'ASC']] 
+        });
+    }
+
+    /**
+     * CU-05: Calcular cobro y preparar salida
      */
     async processExit(ticketId) {
         const ticket = await db.Ticket.findByPk(ticketId);
-        if (!ticket || ticket.status !== 'ACTIVE') throw new Error("Ticket no válido o ya procesado.");
+        if (!ticket || ticket.status !== 'ACTIVE') {
+            throw new Error("Ticket no válido o ya procesado.");
+        }
 
-        // Llamar a ms-tariff-config para calcular el importe
         try {
             const response = await axios.post(`${this.TARIFF_SVC}/calculate`, {
                 branch_id: ticket.branch_id,
                 entry_time: ticket.entry_time,
-                vehicle_type_id: "id-del-vehiculo" // Este dato debería venir del ticket
+                spot_id: ticket.spot_id 
             });
 
-            const { total_amount, stay_minutes } = response.data;
+            const { total_amount, stay_minutes, exit_time } = response.data;
             
-            // Actualizamos el ticket con el monto calculado
-            ticket.total_amount = total_amount;
-            await ticket.save();
-
-            return { ticket, stay_minutes };
+            return { ticket, stay_minutes, total_amount, exit_time };
         } catch (error) {
-            throw new Error("Error al calcular tarifa: " + error.message);
+            throw new Error("Error al calcular tarifa: " + (error.response?.data?.error || error.message));
         }
+    }
+
+    /**
+     * CU-05: Confirmar pago y cerrar ticket
+     */
+    async confirmPayment(ticketId, paymentData) {
+        const ticket = await db.Ticket.findByPk(ticketId);
+        if (!ticket) throw new Error("Ticket no encontrado.");
+
+        const updatedTicket = await ticket.update({
+            status: 'PAID',
+            exit_time: paymentData.exit_time,
+            total_amount: paymentData.total_amount,
+            payment_id: paymentData.payment_id
+        });
+
+        // ACTUALIZACIÓN: Notificar a ms-core-branch que el lugar se LIBERÓ
+        try {
+            await axios.put(`${this.BRANCH_SVC}/spots/${ticket.spot_id}/occupancy`, { isOccupied: false });
+        } catch (error) {
+            console.error("Error al sincronizar ocupación en salida:", error.message);
+        }
+
+        return updatedTicket;
+    }
+
+    /**
+     * CU-06: Anular ticket (Supervisor)
+     */
+    async voidTicket(ticketId) {
+        const ticket = await db.Ticket.findByPk(ticketId);
+        if (!ticket) throw new Error("Ticket no encontrado.");
+
+        const updatedTicket = await ticket.update({ status: 'CANCELLED' });
+
+        // ACTUALIZACIÓN: Liberar el lugar si el ticket se anula
+        try {
+            await axios.put(`${this.BRANCH_SVC}/spots/${ticket.spot_id}/occupancy`, { isOccupied: false });
+        } catch (error) {
+            console.error("Error al liberar lugar por anulación:", error.message);
+        }
+
+        return updatedTicket;
     }
 }
 
