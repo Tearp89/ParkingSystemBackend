@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const tariffController = require('../controllers/tariff.controller');
-const { verifyJWT, authorize } = require('../middleware/auth.middleware');
+const { verifyJWT, authorize } = require('../middleware/tariff.middleware');
 
 // CU-07: Configurar tarifas (Solo ADMIN) [cite: 62]
 router.post('/', verifyJWT, authorize('ADMIN'), tariffController.createTariff);
