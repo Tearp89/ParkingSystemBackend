@@ -1,22 +1,25 @@
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key';
 
-const axios = require('axios'); 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3002/api/v1/auth';
-
-exports.verifyJWT = async (req, res, next) => {
-    const token = req.headers['authorization']?.split(' ')[1]; 
+exports.verifyJWT = (req, res, next) => {
+    // 1. Extraer el token del encabezado Authorization: Bearer <token>
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; 
 
     if (!token) {
         return res.status(403).json({ message: 'Acceso denegado. No se proporcionó Token.' });
     }
 
     try {
-        const response = await axios.post(`${AUTH_SERVICE_URL}/verify`, { token });
+        // 2. Verificar localmente el token
+        const payload = jwt.verify(token, JWT_SECRET);
         
-        req.user = response.data.payload; 
+        // 3. Inyectar el payload en la petición para que el siguiente middleware lo use
+        req.user = payload; 
         
         next();
     } catch (error) {
-        console.error("Error al verificar token con MS-AUTH:", error.response ? error.response.data : error.message);
+        console.error("Error al verificar token:", error.message);
         return res.status(401).json({ message: 'Token inválido o expirado.' });
     }
 };
