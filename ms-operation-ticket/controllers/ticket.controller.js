@@ -82,3 +82,14 @@ exports.voidTicket = async (req, res) => {
         res.status(400).json({ error: error.message });
     }
 };
+
+exports.calculateAmount = async (req, res) => {
+    try {
+        const { branch_id, vehicle_type_id, entry_time } = req.body;
+        // Llama a la lógica que ya tienes en tu service
+        const result = await tariffService.calculateAmount(branch_id, vehicle_type_id, entry_time);
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+};

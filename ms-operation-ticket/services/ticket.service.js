@@ -53,26 +53,33 @@ class TicketService {
     /**
      * CU-05: Calcular cobro y preparar salida
      */
-    async processExit(ticketId) {
-        const ticket = await db.Ticket.findByPk(ticketId);
-        if (!ticket || ticket.status !== 'ACTIVE') {
-            throw new Error("Ticket no válido o ya procesado.");
-        }
+   async processExit(ticketId) {
+    const ticket = await db.Ticket.findByPk(ticketId);
+    if (!ticket || ticket.status !== 'ACTIVE') throw new Error("Ticket no válido.");
 
-        try {
-            const response = await axios.post(`${this.TARIFF_SVC}/calculate`, {
-                branch_id: ticket.branch_id,
-                entry_time: ticket.entry_time,
-                spot_id: ticket.spot_id 
-            });
+    try {
+        // Enviar los datos exactos que espera el ms-tariff-config
+        const response = await axios.post(`${this.TARIFF_SVC}/calculate`, {
+            branch_id: ticket.branch_id,
+            entry_time: ticket.entry_time,
+            // Asegúrate de que el ticket tenga este campo guardado desde la entrada
+            vehicle_type_id: ticket.vehicle_type_id 
+        });
 
-            const { total_amount, stay_minutes, exit_time } = response.data;
-            
-            return { ticket, stay_minutes, total_amount, exit_time };
-        } catch (error) {
-            throw new Error("Error al calcular tarifa: " + (error.response?.data?.error || error.message));
-        }
+        const { total_amount, stay_minutes, tariff_id } = response.data;
+        
+        ticket.total_amount = total_amount;
+        ticket.exit_time = new Date();
+        ticket.tariff_id = tariff_id;
+        await ticket.save();
+
+        return { ticket, stay_minutes, total_amount };
+    } catch (error) {
+        // Si el ms-tariff devuelve 400, aquí capturamos el porqué
+        console.error("Error detallado del calculador:", error.response?.data);
+        throw new Error(error.response?.data?.error || "Error al calcular tarifa");
     }
+}
 
     /**
      * CU-05: Confirmar pago y cerrar ticket

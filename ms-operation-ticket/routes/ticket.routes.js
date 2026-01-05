@@ -41,5 +41,7 @@ router.put('/void/:ticketId',
     ticketController.voidTicket
 );
 
+router.post('/calculate', ticketController.calculateAmount);
+
 // ¡ESTA LÍNEA ES VITAL!
 module.exports = router;

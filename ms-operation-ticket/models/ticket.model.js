@@ -6,6 +6,7 @@ module.exports = (sequelize) => {
     branch_id: { type: DataTypes.UUID, allowNull: false },
     spot_id: { type: DataTypes.UUID, allowNull: false },
     vehicle_plate: { type: DataTypes.STRING, allowNull: false }, // RF-03
+    
     entry_time: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     exit_time: { type: DataTypes.DATE, allowNull: true },
     status: { 
