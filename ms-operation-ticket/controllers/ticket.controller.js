@@ -5,10 +5,20 @@ const ticketService = require('../services/ticket.service');
  */
 exports.entry = async (req, res) => {
     try {
-        // Recibimos spot_id en lugar de vehicle_type_id para asignar el lugar físico
-        const { branch_id, vehicle_plate, spot_id } = req.body;
+        // Desestructuramos el nuevo campo enviado desde el frontend
+        const { branch_id, vehicle_plate, spot_id, vehicle_type_id } = req.body;
         
-        const ticket = await ticketService.registerEntry(branch_id, vehicle_plate, spot_id);
+        // Validamos que el tipo de vehículo no venga vacío
+        if (!vehicle_type_id) {
+            return res.status(400).json({ error: "El tipo de vehículo es obligatorio para la tarifa." });
+        }
+
+        const ticket = await ticketService.registerEntry(
+            branch_id, 
+            vehicle_plate, 
+            spot_id, 
+            vehicle_type_id // Nuevo parámetro
+        );
         
         res.status(201).json({
             message: "Ticket de entrada generado exitosamente.",
@@ -40,7 +50,15 @@ exports.listActive = async (req, res) => {
 exports.calculateExit = async (req, res) => {
     try {
         const { ticketId } = req.params;
-        const result = await ticketService.processExit(ticketId);
+        
+        // Extraemos el token JWT que el frontend envió en los headers
+        const userToken = req.headers.authorization; 
+        
+        if (!userToken) {
+            return res.status(401).json({ error: "No se proporcionó token de autorización." });
+        }
+
+        const result = await ticketService.processExit(ticketId, userToken);
         
         res.status(200).json(result);
     } catch (error) {
@@ -62,7 +80,16 @@ exports.confirmPayment = async (req, res) => {
             ticket
         });
     } catch (error) {
-        res.status(400).json({ error: error.message });
+        // --- LOG DETALLADO ---
+        console.error("❌ ERROR EN CONFIRM_PAYMENT:");
+        console.error("Mensaje:", error.message);
+        if (error.parent) console.error("Detalle DB:", error.parent.detail); // Específico de Postgres
+        if (error.errors) console.error("Errores de Validación:", error.errors.map(e => e.message));
+        
+        res.status(400).json({ 
+            error: error.message,
+            detail: error.parent?.detail || "Error interno de validación" 
+        });
     }
 };
 

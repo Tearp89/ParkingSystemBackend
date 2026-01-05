@@ -3,6 +3,8 @@ const router = express.Router();
 const branchController = require('../controllers/branch.controller');
 
 
+router.put('/spots/:spotId/occupancy', branchController.updateSpotOccupancy);
+
 // Crear una nueva sucursal
 router.post('/', branchController.createBranch);
 
@@ -18,6 +20,5 @@ router.post('/:branchId/spots', branchController.addParkingSpot);
 // Actualizar un lugar específico (ej. cambiar tipo de vehículo o inactivar el cajón)
 router.put('/:branchId/spots/:spotId', branchController.updateParkingSpot);
 
-router.put('/spots/:spotId/occupancy', branchController.updateSpotOccupancy);
 
 module.exports = router;
