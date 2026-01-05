@@ -99,6 +99,17 @@ class BranchService {
         
         return await spot.update(spotData);
     }
+
+    async updateSpotOccupancy(spotId, isOccupied) {
+    const spot = await SpotModel.findByPk(spotId);
+    
+    if (!spot) {
+        throw new Error("Lugar de estacionamiento no encontrado.");
+    }
+
+    // Actualizamos el campo is_occupied definido en el modelo ParkingSpot
+    return await spot.update({ is_occupied: isOccupied });
+}
 }
 
 module.exports = new BranchService();

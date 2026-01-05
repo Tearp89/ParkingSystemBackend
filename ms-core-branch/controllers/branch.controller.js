@@ -70,3 +70,18 @@ exports.updateParkingSpot = async (req, res) => {
         return res.status(400).json({ error: error.message });
     }
 };
+
+exports.updateSpotOccupancy = async (req, res) => {
+    const { spotId } = req.params;
+    const { isOccupied } = req.body; // true para entrada, false para salida
+    try {
+        const updatedSpot = await branchService.updateSpotOccupancy(spotId, isOccupied);
+        return res.status(200).json({ 
+            message: "Estado de ocupación actualizado.", 
+            spot: updatedSpot 
+        });
+    } catch (error) {
+        console.error("Error al actualizar ocupación:", error.message);
+        return res.status(400).json({ error: error.message });
+    }
+};
