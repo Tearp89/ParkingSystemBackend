@@ -2,10 +2,17 @@
 const express = require('express');
 const sequelize = require('./config/database');
 const db = require('./models');
+const cors = require('cors');
 const branchRoutes = require('./routes/branch.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+app.use(cors({
+  origin: 'http://localhost:5173', // Permite solo tu frontend
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 app.use(express.json()); 
 
