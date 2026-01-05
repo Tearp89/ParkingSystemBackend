@@ -3,7 +3,7 @@ const axios = require('axios');
 
 class FinancialService {
     constructor() {
-        this.TICKET_SVC_URL = process.env.TICKET_SERVICE_URL || 'http://ms-operation-ticket:3004/api/v1/tickets';
+        this.TICKET_SVC_URL = process.env.TICKET_SERVICE_URL || 'http://localhost:3005/api/v1/tickets';
     }
 
     async registerPayment(paymentData) {
