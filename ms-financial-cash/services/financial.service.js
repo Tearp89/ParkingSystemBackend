@@ -1,5 +1,6 @@
 const db = require('../models');
 const axios = require('axios');
+const { Op } = require('sequelize');
 
 class FinancialService {
     constructor() {
@@ -7,39 +8,65 @@ class FinancialService {
     }
 
     async registerPayment(paymentData) {
-        const { ticket_id, amount, method } = paymentData;
+    const { ticket_id, amount, method, user_id } = paymentData;
 
-        // 1. Crear el registro de pago en este MS
-        const payment = await db.Payment.create({ ticket_id, amount, method });
+    try {
+        // 1. Consultar al Microservicio de Tickets para obtener la info del ticket
+        // Necesitamos saber de qué sucursal es ese ticket
+        const ticketResponse = await axios.get(`${this.TICKET_SVC_URL}/${ticket_id}`);
+        const branch_id = ticketResponse.data.branch_id; 
 
-        // 2. Notificar al microservicio de Tickets para actualizar el estado del ticket
-        try {
-            await axios.patch(`${this.TICKET_SVC_URL}/${ticket_id}/pay`, {
-                status: 'PAID',
-                payment_id: payment.payment_id
-            });
-        } catch (error) {
-            console.error("Error al notificar al servicio de tickets:", error.message);
-            // Podrías decidir si revertir el pago o manejar el error
-        }
+        // 2. Crear el pago usando el branch_id que recuperamos del ticket
+        const payment = await db.Payment.create({ 
+            ticket_id, 
+            user_id, 
+            branch_id, // <--- Ahora sí tenemos el ID de la sucursal
+            amount, 
+            method 
+        });
+
+        // 3. Notificar al servicio de tickets que ya se pagó
+        await axios.patch(`${this.TICKET_SVC_URL}/${ticket_id}/pay`, {
+            status: 'PAID',
+            payment_id: payment.payment_id
+        });
 
         return payment;
+    } catch (error) {
+        console.error("Error al registrar pago:", error.message);
+        throw new Error("No se pudo recuperar la información de la sucursal del ticket.");
     }
+}
 
-    async generateCashCut(branchId, userId, reportedAmount) {
-        // Aquí se sumarian todos los pagos del turno para comparar con lo reportado
-        const totalExpected = await db.Payment.sum('amount', {
-            where: { /* lógica de fechas/turno */ }
-        }) || 0;
+    async generateCashCut(branchId, userId, reportedAmount, type = 'USER') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-        const difference = reportedAmount - totalExpected;
-
-        return await db.CashCut.create({
-            user_id: userId,
+        const whereClause = { 
             branch_id: branchId,
+            transaction_date: { [Op.gte]: today }
+        };
+
+        // Si es corte por usuario, filtramos solo lo que él cobró
+        if (type === 'USER') {
+            whereClause.user_id = userId;
+        }
+
+        // 1. Calcular lo que el sistema dice que debería haber
+        const totalExpected = await db.Payment.sum('amount', { where: whereClause }) || 0;
+
+        // 2. Calcular diferencia
+        const difference = parseFloat(reportedAmount) - parseFloat(totalExpected);
+
+        // 3. Crear el registro del corte (se guarda quién lo ejecutó)
+        return await db.CashCut.create({
+            user_id: type === 'USER' ? userId : null, // El responsable
+            branch_id: branchId,
+            type: type,
             total_expected: totalExpected,
             total_reported: reportedAmount,
-            difference: difference
+            difference: difference,
+            status: 'CLOSED'
         });
     }
 }

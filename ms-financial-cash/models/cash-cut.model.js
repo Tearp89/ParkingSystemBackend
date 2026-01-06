@@ -5,6 +5,10 @@ module.exports = (sequelize) => {
     cut_id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     user_id: { type: DataTypes.UUID, allowNull: false }, 
     branch_id: { type: DataTypes.UUID, allowNull: false },
+    type: { 
+      type: DataTypes.ENUM('USER', 'GENERAL'), 
+      defaultValue: 'USER' 
+    },
     total_expected: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     total_reported: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     difference: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0.00 },

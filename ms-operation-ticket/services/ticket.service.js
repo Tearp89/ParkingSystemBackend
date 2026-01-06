@@ -108,24 +108,41 @@ class TicketService {
      * CU-05: Confirmar pago y cerrar ticket
      */
     async confirmPayment(ticketId, paymentData) {
-        const ticket = await db.Ticket.findByPk(ticketId);
-        if (!ticket) throw new Error("Ticket no encontrado.");
+    const ticket = await db.Ticket.findByPk(ticketId);
+    if (!ticket) throw new Error("Ticket no encontrado.");
 
-        const updatedTicket = await ticket.update({
-            status: 'PAID',
-            exit_time: paymentData.exit_time,
-            total_amount: paymentData.total_amount
+    // 1. Actualizar el ticket localmente
+    const updatedTicket = await ticket.update({
+        status: 'PAID',
+        exit_time: paymentData.exit_time || new Date(),
+        total_amount: paymentData.total_amount
+    });
+
+    // 2. Registrar el movimiento en el Microservicio Financiero (MS-FINANCIAL-CASH)
+    // Es vital pasar el branch_id del ticket y el user_id del cajero
+    try {
+        const FINANCIAL_SVC = process.env.FINANCIAL_SERVICE_URL || 'http://localhost:3006/api/v1/financial';
+        await axios.post(`${FINANCIAL_SVC}/pay`, {
+            ticket_id: ticketId,
+            amount: paymentData.total_amount,
+            method: paymentData.method,
+            branch_id: ticket.branch_id, // Se toma del ticket original
+            user_id: paymentData.user_id   // Enviado desde el controller (ver paso 3)
         });
-
-        // ACTUALIZACIÓN: Notificar a ms-core-branch que el lugar se LIBERÓ
-        try {
-            await axios.put(`${this.BRANCH_SVC}/spots/${ticket.spot_id}/occupancy`, { isOccupied: false });
-        } catch (error) {
-            console.error("Error al sincronizar ocupación en salida:", error.message);
-        }
-
-        return updatedTicket;
+    } catch (error) {
+        console.error("Error al registrar en finanzas:", error.message);
+        // Continuamos aunque falle finanzas para no bloquear la salida del cliente
     }
+
+    // 3. Liberar el lugar en MS-CORE-BRANCH
+    try {
+        await axios.put(`${this.BRANCH_SVC}/spots/${ticket.spot_id}/occupancy`, { isOccupied: false });
+    } catch (error) {
+        console.error("Error al liberar lugar:", error.message);
+    }
+
+    return updatedTicket;
+}
 
     /**
      * CU-06: Anular ticket (Supervisor)

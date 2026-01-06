@@ -72,24 +72,21 @@ exports.calculateExit = async (req, res) => {
 exports.confirmPayment = async (req, res) => {
     try {
         const { ticketId } = req.params;
-        // Recibimos monto y exit_time calculados previamente
-        const ticket = await ticketService.confirmPayment(ticketId, req.body);
+        
+        // Inyectamos el user_id del token decodificado por el middleware verifyJWT
+        const paymentData = {
+            ...req.body,
+            user_id: req.user.user_id 
+        };
+
+        const ticket = await ticketService.confirmPayment(ticketId, paymentData);
         
         res.status(200).json({
             message: "Pago registrado y ticket cerrado.",
             ticket
         });
     } catch (error) {
-        // --- LOG DETALLADO ---
-        console.error("❌ ERROR EN CONFIRM_PAYMENT:");
-        console.error("Mensaje:", error.message);
-        if (error.parent) console.error("Detalle DB:", error.parent.detail); // Específico de Postgres
-        if (error.errors) console.error("Errores de Validación:", error.errors.map(e => e.message));
-        
-        res.status(400).json({ 
-            error: error.message,
-            detail: error.parent?.detail || "Error interno de validación" 
-        });
+        res.status(400).json({ error: error.message });
     }
 };
 

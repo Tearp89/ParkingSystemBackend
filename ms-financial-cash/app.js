@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 3005;
 async function start() {
     try {
         await db.sequelize.authenticate();
-        await db.sequelize.sync();
+        await db.sequelize.sync({ alter: true });
         app.listen(PORT, () => console.log(`🚀 MS-FINANCIAL-CASH en puerto ${PORT}`));
     } catch (e) {
         console.error("Error al iniciar Financial:", e);
