@@ -1,23 +1,21 @@
 const axios = require('axios');
 
 // URL del microservicio de autenticación (ajústala si usas otro puerto)
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3002/api/v1/auth';
+const jwt = require('jsonwebtoken');
 
 exports.verifyJWT = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    const token = authHeader?.split(' ')[1]; 
 
-    if (!token) {
-        return res.status(401).json({ message: 'Token no proporcionado' });
-    }
+    if (!token) return res.status(401).json({ message: 'Token requerido.' });
 
     try {
-        // Llamada síncrona al microservicio de usuarios para validar el token
-        const response = await axios.post(`${AUTH_SERVICE_URL}/verify`, { token });
-        req.user = response.data.payload;
+        // Validamos directamente con el secreto compartido
+        const payload = jwt.verify(token, process.env.JWT_SECRET); 
+        req.user = payload; 
         next();
     } catch (error) {
-        return res.status(401).json({ message: 'Token inválido o servicio de auth caído' });
+        return res.status(401).json({ message: 'Token inválido o expirado.' });
     }
 };
 

@@ -4,39 +4,43 @@ const { Op } = require('sequelize');
 
 class FinancialService {
     constructor() {
-        this.TICKET_SVC_URL = process.env.TICKET_SERVICE_URL || 'http://localhost:3005/api/v1/tickets';
+        // CORRECCIÓN: Apuntar al contenedor 'ms-operation-ticket' en el puerto 3004
+        this.TICKET_SVC_URL = process.env.TICKET_SERVICE_URL || 'http://ms-operation-ticket:3004/api/v1/tickets';
     }
 
-    async registerPayment(paymentData) {
-    const { ticket_id, amount, method, user_id } = paymentData;
+    // ms-financial-cash/services/financial.service.js
+async registerPayment(paymentData) {
+    // 1. Extraemos branch_id del cuerpo que ahora enviamos desde Tickets
+    const { ticket_id, amount, method, user_id, branch_id } = paymentData;
 
     try {
-        // 1. Consultar al Microservicio de Tickets para obtener la info del ticket
-        // Necesitamos saber de qué sucursal es ese ticket
-        const ticketResponse = await axios.get(`${this.TICKET_SVC_URL}/${ticket_id}`);
-        const branch_id = ticketResponse.data.branch_id; 
-
-        // 2. Crear el pago usando el branch_id que recuperamos del ticket
+        // YA NO HACEMOS EL GET: Eliminamos la llamada que daba 404
+        
+        // 2. Creamos el registro de pago directamente
         const payment = await db.Payment.create({ 
             ticket_id, 
             user_id, 
-            branch_id, // <--- Ahora sí tenemos el ID de la sucursal
+            branch_id, // Usamos el dato recibido
             amount, 
-            method 
+            method,
+            transaction_date: new Date()
         });
 
-        // 3. Notificar al servicio de tickets que ya se pagó
+        // 3. Notificación de vuelta (Opcional, verifica si tienes esta ruta)
+        // Si no tienes el PATCH '/:id/pay' en tickets, puedes comentar esto
+        /*
         await axios.patch(`${this.TICKET_SVC_URL}/${ticket_id}/pay`, {
-            status: 'PAID',
-            payment_id: payment.payment_id
-        });
+            status: 'PAID'
+        }, { headers: { Authorization: ... } });
+        */
 
         return payment;
     } catch (error) {
-        console.error("Error al registrar pago:", error.message);
-        throw new Error("No se pudo recuperar la información de la sucursal del ticket.");
+        console.error("Error al registrar pago en DB:", error.message);
+        throw new Error("Error interno al procesar el pago.");
     }
 }
+
 
     async generateCashCut(branchId, userId, reportedAmount, type = 'USER') {
         const today = new Date();

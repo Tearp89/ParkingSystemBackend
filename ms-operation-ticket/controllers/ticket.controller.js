@@ -1,4 +1,5 @@
 const ticketService = require('../services/ticket.service');
+const axios = require('axios');
 
 /**
  * CU-03: Registrar entrada de vehículo
@@ -72,19 +73,43 @@ exports.calculateExit = async (req, res) => {
 exports.confirmPayment = async (req, res) => {
     try {
         const { ticketId } = req.params;
-        
-        // Inyectamos el user_id del token decodificado por el middleware verifyJWT
-        const paymentData = {
-            ...req.body,
-            user_id: req.user.user_id 
-        };
+        const paymentData = { ...req.body, user_id: req.user.user_id };
 
+        // 1. Lógica local
         const ticket = await ticketService.confirmPayment(ticketId, paymentData);
-        
-        res.status(200).json({
-            message: "Pago registrado y ticket cerrado.",
-            ticket
-        });
+        const userToken = req.headers.authorization;
+
+        // 2. Comunicación interna Docker (ms-operation-ticket -> ms-financial-cash)
+        try {
+    // La URL debe incluir el prefijo /api/v1/financial que definiste en app.js
+    const FINANCIAL_URL = 'http://ms-financial-cash:3005/api/v1/financial/pay';
+    
+    console.log("Intentando registrar pago en:", FINANCIAL_URL);
+
+    await axios.post(FINANCIAL_URL, {
+        ticket_id: ticketId,
+        branch_id: ticket.branch_id,
+        user_id: req.user.user_id, // Importante para el corte de caja por usuario
+        amount: req.body.total_amount,
+        payment_method: req.body.method, // Verifica si tu modelo usa 'method' o 'payment_method'
+        transaction_date: new Date()
+    }, {
+                // AQUÍ ESTÁ LA CLAVE: Reenviamos el header de Authorization
+                headers: {
+                    'Authorization': userToken 
+                }});
+    
+    console.log("✅ ¡Pago sincronizado con Finanzas!");
+} catch (error) {
+    if (error.response) {
+        // El servidor respondió con algo distinto a 2xx
+        console.error(`❌ Error ${error.response.status}:`, error.response.data);
+    } else {
+        console.error("❌ Error de conexión:", error.message);
+    }
+}
+
+        res.status(200).json({ message: "Pago registrado", ticket });
     } catch (error) {
         res.status(400).json({ error: error.message });
     }

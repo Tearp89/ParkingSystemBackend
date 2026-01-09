@@ -75,6 +75,7 @@ services:
       - "3004:3004"
     environment:
       - PORT=3004
+      - FINANCIAL_SERVICE_URL=http://ms-financial-cash:3005/api/v1
       - DB_HOST=postgres_db
       - DB_NAME=parking_master
       - DB_USER=user_dev
@@ -96,6 +97,7 @@ services:
       - "3005:3005"
     environment:
       - PORT=3005
+      - TICKET_SERVICE_URL=http://ms-operation-ticket:3004/api/v1/tickets
       - DB_HOST=postgres_db
       - DB_NAME=parking_master
       - DB_USER=user_dev
