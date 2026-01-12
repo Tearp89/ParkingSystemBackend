@@ -1,9 +1,9 @@
-const { Sequelize } = require('sequelize'); // <--- Faltaba esta línea
+const { Sequelize } = require('sequelize'); 
 const sequelize = require('../config/database');
 const TicketModel = require('./ticket.model');
 
 const db = {
-  Sequelize, // Ahora sí, Sequelize está definido
+  Sequelize, 
   sequelize,
   Ticket: TicketModel(sequelize)
 };

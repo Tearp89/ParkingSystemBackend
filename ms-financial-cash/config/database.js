@@ -1,4 +1,3 @@
-// ms-financial-cash/config/database.js
 const { Sequelize } = require('sequelize');
 
 const sequelize = new Sequelize(
@@ -9,7 +8,7 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST || 'postgres_db',
     dialect: 'postgres',
     port: process.env.DB_PORT || 5432,
-    logging: false, // Para que la consola esté limpia
+    logging: false, 
   }
 );
 

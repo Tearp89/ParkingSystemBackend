@@ -10,7 +10,7 @@ app.use(cors());
 
 app.use(express.json());
 
-// Rutas
+
 app.use('/api/v1/tickets', ticketRoutes);
 
 const PORT = process.env.PORT || 3004;

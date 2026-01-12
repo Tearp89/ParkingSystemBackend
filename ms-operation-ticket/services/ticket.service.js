@@ -12,20 +12,16 @@ class TicketService {
      * CU-03: Registrar entrada de vehículo
      */
     async registerEntry(branchId, plate, spotId, vehicleTypeId) {
-        // 1. Validar si el vehículo ya está adentro
         const active = await db.Ticket.findOne({
             where: { vehicle_plate: plate, status: 'ACTIVE' }
         });
         if (active) throw new Error("El vehículo ya tiene una sesión activa.");
 
-        // 2. NUEVA VALIDACIÓN: Verificar si el lugar está ocupado en la base de datos de tickets
-        // Esto evita que dos procesos usen el mismo spot_id al mismo tiempo
         const spotOccupied = await db.Ticket.findOne({
             where: { spot_id: spotId, status: 'ACTIVE' }
         });
         if (spotOccupied) throw new Error("Este lugar acaba de ser ocupado. Elige otro.");
 
-        // 3. Crear el ticket
         const ticket = await db.Ticket.create({
             branch_id: branchId,
             vehicle_plate: plate,
@@ -35,10 +31,7 @@ class TicketService {
             entry_time: new Date()
         });
 
-        // 4. Sincronización (MS-CORE-BRANCH)
         try {
-            // Asegúrate que la URL en this.BRANCH_SVC sea: http://ms-core-branch:3001/api/v1/branches
-            // Si el router de branch tiene '/spots/:id/occupancy', revisa si no sobra la palabra 'branches'
             console.log(spotId);
             await axios.put(`${this.BRANCH_SVC}/spots/${spotId}/occupancy`, {
                 isOccupied: true
@@ -70,18 +63,14 @@ class TicketService {
          * CU-05: Calcular cobro y preparar salida
          * CORRECCIÓN DE RUTA: Eliminamos el "/tariffs" extra para evitar el error 404
          */
-    // Añadimos manualTariffId como tercer parámetro
-// Añadimos manualTariffId al final
 async processExit(ticketId, userToken, manualTariffId = null) {
     const ticket = await db.Ticket.findByPk(ticketId);
     if (!ticket) throw new Error("Ticket no encontrado");
 
-    // Si recibimos manualTariffId lo usamos, si no, usamos el del ticket
     const tariffToUse = manualTariffId || ticket.tariff_id;
 
-    // Llamada al microservicio de tarifas
     const response = await axios.post(`${this.TARIFF_SVC}/calculate`, {
-        tariff_id: tariffToUse, // Ahora enviamos el ID específico
+        tariff_id: tariffToUse, 
         entry_time: ticket.entry_time,
         branch_id: ticket.branch_id
     }, {
@@ -103,30 +92,25 @@ async processExit(ticketId, userToken, manualTariffId = null) {
     const ticket = await db.Ticket.findByPk(ticketId);
     if (!ticket) throw new Error("Ticket no encontrado.");
 
-    // 1. Actualizar el ticket localmente
     const updatedTicket = await ticket.update({
         status: 'PAID',
         exit_time: paymentData.exit_time || new Date(),
         total_amount: paymentData.total_amount
     });
 
-    // 2. Registrar el movimiento en el Microservicio Financiero (MS-FINANCIAL-CASH)
-    // Es vital pasar el branch_id del ticket y el user_id del cajero
     try {
         const FINANCIAL_SVC = process.env.FINANCIAL_SERVICE_URL || 'http://localhost:3006/api/v1/financial';
         await axios.post(`${FINANCIAL_SVC}/pay`, {
             ticket_id: ticketId,
             amount: paymentData.total_amount,
             method: paymentData.method,
-            branch_id: ticket.branch_id, // Se toma del ticket original
-            user_id: paymentData.user_id   // Enviado desde el controller (ver paso 3)
+            branch_id: ticket.branch_id, 
+            user_id: paymentData.user_id   
         });
     } catch (error) {
         console.error("Error al registrar en finanzas:", error.message);
-        // Continuamos aunque falle finanzas para no bloquear la salida del cliente
     }
 
-    // 3. Liberar el lugar en MS-CORE-BRANCH
     try {
         await axios.put(`${this.BRANCH_SVC}/spots/${ticket.spot_id}/occupancy`, { isOccupied: false });
     } catch (error) {
@@ -145,7 +129,6 @@ async processExit(ticketId, userToken, manualTariffId = null) {
 
         const updatedTicket = await ticket.update({ status: 'CANCELLED' });
 
-        // ACTUALIZACIÓN: Liberar el lugar si el ticket se anula
         try {
             await axios.put(`${this.BRANCH_SVC}/spots/${ticket.spot_id}/occupancy`, { isOccupied: false });
         } catch (error) {

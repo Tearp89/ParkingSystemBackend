@@ -6,10 +6,10 @@ const axios = require('axios');
  */
 exports.entry = async (req, res) => {
     try {
-        // Desestructuramos el nuevo campo enviado desde el frontend
+        
         const { branch_id, vehicle_plate, spot_id, vehicle_type_id } = req.body;
         
-        // Validamos que el tipo de vehículo no venga vacío
+        
         if (!vehicle_type_id) {
             return res.status(400).json({ error: "El tipo de vehículo es obligatorio para la tarifa." });
         }
@@ -18,7 +18,7 @@ exports.entry = async (req, res) => {
             branch_id, 
             vehicle_plate, 
             spot_id, 
-            vehicle_type_id // Nuevo parámetro
+            vehicle_type_id 
         );
         
         res.status(201).json({
@@ -35,7 +35,7 @@ exports.entry = async (req, res) => {
  */
 exports.listActive = async (req, res) => {
     try {
-        // Obtenemos branch_id de los params o del token del usuario
+        
         const { branchId } = req.params; 
         const tickets = await ticketService.getActiveTickets(branchId, req.query);
         
@@ -48,13 +48,13 @@ exports.listActive = async (req, res) => {
 /**
  * CU-05: Calcular importe (Paso 1 de salida)
  */
-// ms-operation-ticket/controllers/ticket.controller.js
+
 
 exports.calculateExit = async (req, res) => {
     try {
         const { ticketId } = req.params;
         
-        // ¡IMPORTANTE! Al ser GET con ?, usamos req.query
+       
         const { tariff_id } = req.query; 
         
         console.log("📥 Recibido ticketId:", ticketId);
@@ -63,8 +63,6 @@ exports.calculateExit = async (req, res) => {
         const userToken = req.headers.authorization; 
         if (!userToken) return res.status(401).json({ error: "No token" });
 
-        // Pasamos el tariff_id al servicio. 
-        // Si es undefined, el servicio usará la tarifa por defecto del ticket.
         const result = await ticketService.processExit(ticketId, userToken, tariff_id);
         
         res.status(200).json(result);
@@ -82,13 +80,10 @@ exports.confirmPayment = async (req, res) => {
         const { ticketId } = req.params;
         const paymentData = { ...req.body, user_id: req.user.user_id };
 
-        // 1. Lógica local
         const ticket = await ticketService.confirmPayment(ticketId, paymentData);
         const userToken = req.headers.authorization;
 
-        // 2. Comunicación interna Docker (ms-operation-ticket -> ms-financial-cash)
         try {
-    // La URL debe incluir el prefijo /api/v1/financial que definiste en app.js
     const FINANCIAL_URL = 'http://ms-financial-cash:3005/api/v1/financial/pay';
     
     console.log("Intentando registrar pago en:", FINANCIAL_URL);
@@ -96,12 +91,12 @@ exports.confirmPayment = async (req, res) => {
     await axios.post(FINANCIAL_URL, {
         ticket_id: ticketId,
         branch_id: ticket.branch_id,
-        user_id: req.user.user_id, // Importante para el corte de caja por usuario
+        user_id: req.user.user_id, 
         amount: req.body.total_amount,
-        payment_method: req.body.method, // Verifica si tu modelo usa 'method' o 'payment_method'
+        payment_method: req.body.method, 
         transaction_date: new Date()
     }, {
-                // AQUÍ ESTÁ LA CLAVE: Reenviamos el header de Authorization
+                
                 headers: {
                     'Authorization': userToken 
                 }});
@@ -109,7 +104,6 @@ exports.confirmPayment = async (req, res) => {
     console.log("✅ ¡Pago sincronizado con Finanzas!");
 } catch (error) {
     if (error.response) {
-        // El servidor respondió con algo distinto a 2xx
         console.error(`❌ Error ${error.response.status}:`, error.response.data);
     } else {
         console.error("❌ Error de conexión:", error.message);
@@ -141,16 +135,13 @@ exports.voidTicket = async (req, res) => {
 
 exports.calculateAmount = async (req, res) => {
     try {
-        // Desestructuramos el tariff_id que viene del select del frontend
-        // y el entry_time que sacamos de la info del ticket
+       
         const { tariff_id, entry_time } = req.body;
 
-        // Validación de seguridad
         if (!tariff_id) {
             return res.status(400).json({ error: "El ID de tarifa es obligatorio para calcular el monto." });
         }
 
-        // Llamamos al servicio pasando los nuevos parámetros
         const result = await tariffService.calculateAmount(tariff_id, entry_time);
         
         res.json(result);

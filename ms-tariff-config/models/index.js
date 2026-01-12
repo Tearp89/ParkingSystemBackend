@@ -1,9 +1,9 @@
-const { Sequelize } = require('sequelize'); // Importamos la clase
-const sequelize = require('../config/database'); // Importamos la instancia
+const { Sequelize } = require('sequelize'); 
+const sequelize = require('../config/database'); 
 const Tariff = require('./tariff.model')(sequelize);
 
 const db = {
-    Sequelize, // Agregamos la clase aquí
+    Sequelize, 
     sequelize,
     Tariff
 };

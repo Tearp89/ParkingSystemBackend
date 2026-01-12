@@ -2,7 +2,6 @@ const db = require('../models');
 const { Op, fn, col } = require('sequelize');
 
 class ReportService {
-    // CU-12: Ocupación en tiempo real
     async getOccupancy(branchId) {
         const activeTickets = await db.Ticket.count({
             where: { branch_id: branchId, status: 'ACTIVE' }
@@ -10,26 +9,24 @@ class ReportService {
         return { branch_id: branchId, occupied_spots: activeTickets };
     }
 
-    // CU-13/14: Ingresos detallados y Dashboard consolidado
-    async getRevenue(branchId, startDate, endDate) {
+    async getRevenue(branchId) {
         const whereClause = {
-            transaction_date: { [Op.between]: [startDate, endDate] }
+            status: 'PAID'
         };
+
         if (branchId) whereClause.branch_id = branchId;
 
-        // Sumar ingresos agrupados por fecha (día) y sucursal
-        const revenueData = await db.Payment.findAll({
+        const revenueData = await db.Ticket.findAll({
             attributes: [
-                [fn('DATE', col('transaction_date')), 'date'],
-                [fn('SUM', col('amount')), 'daily_total'],
-                'method'
+                [db.sequelize.fn('DATE', db.sequelize.col('exit_time')), 'date'],
+                [db.sequelize.fn('SUM', db.sequelize.col('total_amount')), 'daily_total']
             ],
             where: whereClause,
-            group: [fn('DATE', col('transaction_date')), 'method'],
-            order: [[fn('DATE', col('transaction_date')), 'DESC']]
+            group: [db.sequelize.fn('DATE', db.sequelize.col('exit_time'))],
+            order: [[db.sequelize.fn('DATE', db.sequelize.col('exit_time')), 'DESC']]
         });
 
-        const totalOverall = await db.Payment.sum('amount', { where: whereClause });
+        const totalOverall = await db.Ticket.sum('total_amount', { where: whereClause });
 
         return {
             total_revenue: totalOverall || 0,
@@ -37,7 +34,6 @@ class ReportService {
         };
     }
 
-    // CU-15: Listado detallado de tickets con filtros
     async getDetailedTickets(filters) {
         const { branchId, plate, status, startDate, endDate } = filters;
         const where = {};

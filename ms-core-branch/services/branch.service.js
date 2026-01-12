@@ -52,7 +52,6 @@ class BranchService {
             throw new Error("Sucursal no encontrada.");
         }
 
-        // Si se intenta cambiar la capacidad, verificar que no sea menor a los spots existentes
         if (updateData.capacity) {
             const currentSpots = await SpotModel.count({ where: { branch_id: branchId } });
             if (updateData.capacity < currentSpots) {
@@ -107,7 +106,6 @@ class BranchService {
         throw new Error("Lugar de estacionamiento no encontrado.");
     }
 
-    // Actualizamos el campo is_occupied definido en el modelo ParkingSpot
     return await spot.update({ is_occupied: isOccupied });
 }
 }

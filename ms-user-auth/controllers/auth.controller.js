@@ -32,7 +32,6 @@ exports.verifyToken = async (req, res) => {
     }
 };
 
-// ms-user-auth/controllers/auth.controller.js
 exports.register = async (req, res) => {
     try {
         const user = await authService.register(req.body);
@@ -42,7 +41,6 @@ exports.register = async (req, res) => {
     }
 };
 
-// ms-user-auth/controllers/auth.controller.js
 
 exports.getUsers = async (req, res) => {
     try {
@@ -54,27 +52,24 @@ exports.getUsers = async (req, res) => {
     }
 };
 
-// ms-user-auth/controllers/auth.controller.js
 exports.updateUser = async (req, res) => {
     const { id } = req.params;
     const { name, username, role, branch_id, email } = req.body;
 
     try {
-        // Ahora esta función ya existirá en el servicio
         const user = await authService.getUserById(id); 
         
         if (!user) {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
 
-        // Actualización de campos
         user.name = name || user.name;
         user.username = username || user.username;
         user.role = role || user.role;
         user.branch_id = branch_id || user.branch_id;
         user.email = email || user.email;
 
-        await user.save(); // Sequelize persistirá los cambios
+        await user.save();
         
         res.status(200).json({ 
             message: 'Usuario actualizado con éxito', 
@@ -97,7 +92,6 @@ exports.deleteUser = async (req, res) => {
 
 exports.checkSystemStatus = async (req, res) => {
     try {
-        // Esto ejecutará internamente: SELECT count(*) FROM "User";
         const adminCount = await db.User.count({
             where: { role: 'ADMIN' }
         });
@@ -109,5 +103,15 @@ exports.checkSystemStatus = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getUserById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await authService.getUserById(id);
+        return res.status(200).json(user);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
     }
 };

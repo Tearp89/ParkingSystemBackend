@@ -1,4 +1,3 @@
-// ms-reporting/models/index.js
 const { Sequelize } = require('sequelize');
 const sequelize = require('../config/database');
 

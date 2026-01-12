@@ -13,5 +13,6 @@ router.get('/users', verifyJWT, authorize('ADMIN'), authController.getUsers);
 router.put('/users/:id', verifyJWT, authorize('ADMIN'), authController.updateUser);
 router.delete('/users/:id', verifyJWT, authorize('ADMIN'), authController.deleteUser);
 router.get('/system-status', authController.checkSystemStatus);
+router.get('/users/:id', verifyJWT, authorize('ADMIN', 'SUPERVISOR', 'CASHIER'), authController.getUserById);
 
 module.exports = router;

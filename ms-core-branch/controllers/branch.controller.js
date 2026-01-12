@@ -1,8 +1,6 @@
 const db = require('../models');
-// ms-core-branch/controllers/branch.controller.js
 const branchService = require('../services/branch.service');
 
-// CU-01: Registrar Sucursal
 exports.createBranch = async (req, res) => {
     try {
         const newBranch = await branchService.createBranch(req.body);
@@ -16,7 +14,6 @@ exports.createBranch = async (req, res) => {
     }
 };
 
-// CU-01/CU-08: Listar todas las sucursales
 exports.listBranches = async (req, res) => {
     try {
         const branches = await branchService.listBranches();
@@ -27,7 +24,6 @@ exports.listBranches = async (req, res) => {
     }
 };
 
-// RF-01: Editar sucursal y Cambiar Estado (Activar/Desactivar)
 exports.updateBranch = async (req, res) => {
     const { branchId } = req.params;
     try {
@@ -42,7 +38,6 @@ exports.updateBranch = async (req, res) => {
     }
 };
 
-// CU-02: Agregar lugar de estacionamiento
 exports.addParkingSpot = async (req, res) => {
     const { branchId } = req.params; 
     try {
@@ -57,7 +52,6 @@ exports.addParkingSpot = async (req, res) => {
     }
 };
 
-// CU-02: Actualizar lugar de estacionamiento (Estado o tipo)
 exports.updateParkingSpot = async (req, res) => {
     const { branchId, spotId } = req.params;
     try {
@@ -75,19 +69,33 @@ exports.updateParkingSpot = async (req, res) => {
 exports.updateSpotOccupancy = async (req, res) => {
     try {
         const { spotId } = req.params;
-        const { isOccupied } = req.body; // El ticket service manda 'isOccupied'
+        const { isOccupied } = req.body; 
 
         const spot = await db.ParkingSpot.findByPk(spotId);
         if (!spot) return res.status(404).json({ error: "Lugar no encontrado" });
 
-        // IMPORTANTE: Usa el nombre exacto de la columna que vimos en el \d: 'is_occupied'
         await spot.update({ 
-            is_occupied: isOccupied // Mapeamos CamelCase a snake_case
+            is_occupied: isOccupied 
         });
 
         res.status(200).json({ message: "Ocupación actualizada con éxito" });
     } catch (error) {
         console.error("Error en updateSpotOccupancy:", error.message);
         res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getBranchById = async (req, res) => {
+    try {
+        const { branchId } = req.params;
+        const branch = await branchService.getBranchById(branchId);
+        
+        if (!branch) {
+            return res.status(404).json({ message: "Sucursal no encontrada." });
+        }
+        
+        return res.status(200).json(branch);
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
     }
 };
