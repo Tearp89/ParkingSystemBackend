@@ -12,19 +12,21 @@ exports.getOccupancy = async (req, res) => {
 
 exports.getRevenue = async (req, res) => {
     try {
+        // 1. Extraemos los parámetros, pero ya no son obligatorios
         const { branchId, startDate, endDate } = req.query;
         
-        if (!startDate || !endDate) {
-            return res.status(400).json({ message: "Se requieren fechas de inicio y fin." });
-        }
-
+        // 2. Llamamos al servicio pasando lo que tengamos. 
+        // El servicio se encargará de sumar de "Ticket" porque "Payment" está vacío
         const data = await reportService.getRevenue(
             branchId, 
-            new Date(startDate), 
-            new Date(endDate)
+            startDate, 
+            endDate
         );
+
+        // 3. Enviamos todo el histórico al Frontend
         res.status(200).json(data);
     } catch (error) {
+        // Si algo falla en la DB, lo atrapamos aquí
         res.status(400).json({ error: error.message });
     }
 };

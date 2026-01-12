@@ -11,31 +11,34 @@ class ReportService {
     }
 
     // CU-13/14: Ingresos detallados y Dashboard consolidado
-    async getRevenue(branchId, startDate, endDate) {
-        const whereClause = {
-            transaction_date: { [Op.between]: [startDate, endDate] }
-        };
-        if (branchId) whereClause.branch_id = branchId;
+async getRevenue(branchId) {
+    // 1. Quitamos el filtro de fechas para que traiga TODO el histórico
+    const whereClause = {
+        status: 'PAID' // Solo sumamos lo que ya se cobró
+    };
+    
+    if (branchId) whereClause.branch_id = branchId;
 
-        // Sumar ingresos agrupados por fecha (día) y sucursal
-        const revenueData = await db.Payment.findAll({
-            attributes: [
-                [fn('DATE', col('transaction_date')), 'date'],
-                [fn('SUM', col('amount')), 'daily_total'],
-                'method'
-            ],
-            where: whereClause,
-            group: [fn('DATE', col('transaction_date')), 'method'],
-            order: [[fn('DATE', col('transaction_date')), 'DESC']]
-        });
+    // 2. Sumamos de la tabla Ticket porque Payment no tiene registros
+    const revenueData = await db.Ticket.findAll({
+        attributes: [
+            // Usamos exit_time como la fecha de la transacción
+            [db.sequelize.fn('DATE', db.sequelize.col('exit_time')), 'date'],
+            [db.sequelize.fn('SUM', db.sequelize.col('total_amount')), 'daily_total']
+        ],
+        where: whereClause,
+        group: [db.sequelize.fn('DATE', db.sequelize.col('exit_time'))],
+        order: [[db.sequelize.fn('DATE', db.sequelize.col('exit_time')), 'DESC']]
+    });
 
-        const totalOverall = await db.Payment.sum('amount', { where: whereClause });
+    // 3. Suma total para el KPI principal
+    const totalOverall = await db.Ticket.sum('total_amount', { where: whereClause });
 
-        return {
-            total_revenue: totalOverall || 0,
-            breakdown: revenueData
-        };
-    }
+    return {
+        total_revenue: totalOverall || 0,
+        breakdown: revenueData
+    };
+}
 
     // CU-15: Listado detallado de tickets con filtros
     async getDetailedTickets(filters) {
