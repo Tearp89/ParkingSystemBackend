@@ -3,8 +3,10 @@ const router = express.Router();
 const reportController = require('../controllers/report.controller');
 const { verifyJWT, authorize } = require('../middleware/auth.middleware');
 
-// Solo ADMIN y SUPERVISOR pueden ver reportes
 router.get('/occupancy/:branchId', verifyJWT, authorize('ADMIN', 'SUPERVISOR'), reportController.getOccupancy);
+
 router.get('/revenue', verifyJWT, authorize('ADMIN'), reportController.getRevenue);
+
+router.get('/tickets', verifyJWT, authorize('ADMIN', 'SUPERVISOR'), reportController.getDetailedTickets);
 
 module.exports = router;

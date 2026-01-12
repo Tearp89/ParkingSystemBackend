@@ -71,6 +71,36 @@ class AuthService {
     async hashPassword(password) {
         return bcrypt.hash(password, 10);
     }
+
+    /**
+     * Recupera todos los usuarios registrados.
+     * @returns {Promise<Array>} Lista de usuarios.
+     */
+    async getAllUsers() {
+        // Buscamos todos los usuarios excluyendo el hash de la contraseña por seguridad
+        return await UserModel.findAll({
+            attributes: { exclude: ['password_hash'] }
+        });
+    }
+
+    // ms-user-auth/services/auth.service.js
+// Agrega este método dentro de tu clase AuthService
+async getUserById(userId) {
+    // Buscamos por la llave primaria definida en tu modelo
+    return await UserModel.findByPk(userId, {
+        attributes: { exclude: ['password_hash'] } // Seguridad: nunca enviamos el hash
+    });
 }
+
+async deleteUser(userId) {
+    const user = await UserModel.findByPk(userId);
+    if (!user) throw new Error('Usuario no encontrado');
+    
+    user.active = false; 
+    return await user.save();
+}
+}
+
+
 
 module.exports = new AuthService();

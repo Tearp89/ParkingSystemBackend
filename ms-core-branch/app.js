@@ -2,10 +2,13 @@
 const express = require('express');
 const sequelize = require('./config/database');
 const db = require('./models');
+const cors = require('cors');
 const branchRoutes = require('./routes/branch.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+app.use(cors());
 
 app.use(express.json()); 
 

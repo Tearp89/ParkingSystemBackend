@@ -1,10 +1,13 @@
 const express = require('express');
 const sequelize = require('./config/database');
+const cors = require('cors');
 const db = require('./models');
 const authRoutes = require('./routes/auth.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+
+app.use(cors());
 
 app.use(express.json());
 app.use('/api/v1/auth', authRoutes);

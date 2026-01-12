@@ -1,9 +1,13 @@
 require('dotenv').config();
 const express = require('express');
 const db = require('./models');
+const cors = require('cors');
 const ticketRoutes = require('./routes/ticket.routes');
 
 const app = express();
+
+app.use(cors());
+
 app.use(express.json());
 
 // Rutas

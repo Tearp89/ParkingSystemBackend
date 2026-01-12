@@ -1,9 +1,13 @@
 require('dotenv').config();
 const express = require('express');
 const db = require('./models');
+const cors = require('cors');
 const reportRoutes = require('./routes/report.routes');
 
 const app = express();
+
+app.use(cors());
+
 app.use(express.json());
 app.use('/api/v1/reports', reportRoutes);
 

@@ -8,5 +8,8 @@ router.post('/pay', verifyJWT, authorize('CASHIER', 'ADMIN'), paymentController.
 
 // RF-09: Corte de Caja (Cajero/Supervisor)
 router.post('/cash-cut', verifyJWT, authorize('CASHIER', 'SUPERVISOR', 'ADMIN'), paymentController.cut);
+router.get('/pending-summary/:branchId', verifyJWT, authorize('SUPERVISOR', 'ADMIN'), paymentController.getPendingSummary);
+router.post('/general-closing', verifyJWT, authorize('SUPERVISOR', 'ADMIN'), paymentController.createGeneralClosing);
+router.get('/history', verifyJWT, authorize('ADMIN', 'SUPERVISOR'), paymentController.getHistory);
 
 module.exports = router;
