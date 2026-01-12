@@ -17,7 +17,6 @@ async function startServer() {
         await sequelize.authenticate();
         console.log('📦 MS-AUTH: Conectado a PostgreSQL.');
 
-        // Sincronizar modelos
         await db.sequelize.sync({ force: false }); 
         console.log('Modelos de Auth sincronizados.');
 
@@ -26,7 +25,7 @@ async function startServer() {
         });
     } catch (error) {
         console.error('❌ Error al iniciar MS-AUTH:', error);
-        process.exit(1); // Esto hace que el contenedor se detenga si hay error
+        process.exit(1); 
     }
 }
 

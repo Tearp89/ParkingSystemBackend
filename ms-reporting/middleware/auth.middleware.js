@@ -1,6 +1,5 @@
 const axios = require('axios');
 
-// URL del microservicio de autenticación (ajústala si usas otro puerto)
 const jwt = require('jsonwebtoken');
 
 exports.verifyJWT = async (req, res, next) => {
@@ -10,7 +9,6 @@ exports.verifyJWT = async (req, res, next) => {
     if (!token) return res.status(401).json({ message: 'Token requerido.' });
 
     try {
-        // Validamos directamente con el secreto compartido
         const payload = jwt.verify(token, process.env.JWT_SECRET); 
         req.user = payload; 
         next();

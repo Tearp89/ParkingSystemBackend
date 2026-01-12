@@ -5,7 +5,7 @@ module.exports = (sequelize) => {
     cut_id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     parent_cut_id: {
       type: DataTypes.UUID,
-      allowNull: true, // Muy importante que sea true
+      allowNull: true, 
     },
     user_id: { type: DataTypes.UUID, allowNull: false }, 
     branch_id: { type: DataTypes.UUID, allowNull: false },
