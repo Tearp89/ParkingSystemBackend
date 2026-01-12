@@ -28,24 +28,16 @@ class TariffService {
     /**
      * Calcula el importe basado en minutos y tipo de vehículo (RF-05).
      */
-async calculateAmount(branch_id, vehicle_type_id, entry_time) {
+async calculateAmount(tariff_id, entry_time) {
         const exit_time = new Date();
         // Cálculo de minutos de estancia
         const stay_minutes = Math.floor((exit_time - new Date(entry_time)) / 60000); 
-
+        const tariff = await db.Tariff.findByPk(tariff_id);
         // Buscar tarifa vigente para el tipo específico (normal, moto, pcd, ev)
         // CORRECCIÓN: Usamos db.Sequelize.Op que definimos en models/index.js
-        const tariff = await db.Tariff.findOne({
-            where: { 
-                branch_id, 
-                vehicle_type_id, 
-                active: true,
-                valid_from: { [db.Sequelize.Op.lte]: exit_time }
-            },
-            order: [['valid_from', 'DESC']] // Obtenemos la más reciente que sea válida
-        });
+        
 
-        if (!tariff) throw new Error(`No se encontró tarifa activa para el tipo: ${vehicle_type_id}`);
+        if (!tariff) throw new Error(`No se encontró tarifa activa con el ID: ${tariff_id}`);
 
         // 1. Aplicar minutos de gracia
         if (stay_minutes <= tariff.grace_min) {
@@ -81,10 +73,11 @@ async calculateAmount(branch_id, vehicle_type_id, entry_time) {
         }
 
         return {
-            stay_minutes,
-            total_amount: Number(amount),
-            tariff_id: tariff.tariff_id
-        };
+        stay_minutes,
+        total_amount: Number(amount),
+        tariff_id: tariff.tariff_id,
+        tariff_name: tariff.name // Agregamos el nombre para que el ticket de salida sea claro
+    };
     }
 
     

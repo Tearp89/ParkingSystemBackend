@@ -62,3 +62,91 @@ exports.getHistory = async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
 };
+
+exports.getPendingSummary = async (req, res) => {
+    try {
+        const { branchId } = req.params;
+        console.log("🔎 Buscando resumen para sucursal:", branchId);
+
+        // Paso a paso para detectar dónde truena
+        if (!db.Payment) {
+            console.error("❌ ERROR: El modelo db.Payment no está cargado.");
+            return res.status(500).json({ error: "Modelo Payment no encontrado" });
+        }
+
+        const pending = await db.Payment.findAll({
+            where: { 
+                branch_id: branchId, 
+                cash_closing_id: null 
+            }
+        });
+
+        console.log(`✅ Se encontraron ${pending.length} transacciones.`);
+
+        const total_cash = pending
+            .filter(p => p.method === 'CASH')
+            .reduce((acc, p) => acc + Number(p.amount), 0);
+
+        const total_card = pending
+            .filter(p => p.method === 'CARD')
+            .reduce((acc, p) => acc + Number(p.amount), 0);
+
+        res.json({ 
+            total: total_cash + total_card, 
+            total_cash, 
+            total_card, 
+            count: pending.length 
+        });
+    } catch (e) {
+        // ESTO ES LO QUE NECESITAMOS VER EN EL LOG:
+        console.error("🔥 Error crítico en getPendingSummary:", e); 
+        res.status(500).json({ error: e.message, stack: e.stack });
+    }
+};
+
+exports.createGeneralClosing = async (req, res) => {
+    try {
+        const { branch_id } = req.body;
+        const supervisor_id = req.user.user_id;
+
+        // 1. Buscar transacciones pendientes
+        const transactions = await db.Payment.findAll({
+            where: {
+                branch_id,
+                cash_closing_id: null
+            }
+        });
+
+        if (transactions.length === 0) {
+            return res.status(400).json({ message: "No hay transacciones pendientes para corte." });
+        }
+
+        const total = transactions.reduce((acc, p) => acc + Number(p.amount), 0);
+
+        // 2. CORRECCIÓN: Usar db.CashCut (que es tu modelo único)
+        const closing = await db.CashCut.create({
+            branch_id,
+            user_id: supervisor_id, // Evita el error NOT NULL
+            total_expected: total,
+            total_reported: total,
+            difference: 0,
+            type: 'GENERAL', // Aquí aplicamos tu ENUM
+            status: 'CLOSED'
+        });
+
+        // 3. Vincular transacciones al ID del corte
+        // Nota: Si tu modelo CashCut usa 'cut_id' como PK, usa closing.cut_id
+        await db.Payment.update(
+            { cash_closing_id: closing.cut_id }, 
+            { where: { payment_id: transactions.map(t => t.payment_id) } }
+        );
+
+        res.status(201).json({ 
+            message: "Corte general realizado exitosamente", 
+            closing 
+        });
+    } catch (error) {
+        console.error("🔥 Error en createGeneralClosing:", error);
+        res.status(500).json({ error: error.message });
+    }
+};

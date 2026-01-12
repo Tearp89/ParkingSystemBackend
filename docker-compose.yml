@@ -14,8 +14,13 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_dev -d parking_master"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # 2. Microservicio Auth (El corazón de la seguridad)
+  # 2. Microservicio Auth
   ms-user-auth:
     build: ./ms-user-auth
     container_name: ms-user-auth
@@ -29,7 +34,8 @@ services:
       - DB_PASS=secret_password
       - JWT_SECRET=una_clave_secreta_muy_larga_y_segura_2025
     depends_on:
-      - postgres_db
+      postgres_db:
+        condition: service_healthy
 
   # 3. Microservicio Core Branch
   ms-core-branch:
@@ -46,8 +52,10 @@ services:
       - JWT_SECRET=una_clave_secreta_muy_larga_y_segura_2025
       - AUTH_SERVICE_URL=http://ms-user-auth:3002/api/v1/auth
     depends_on:
-      - postgres_db
-      - ms-user-auth
+      postgres_db:
+        condition: service_healthy
+      ms-user-auth:
+        condition: service_started
 
   # 4. Microservicio Tariff
   ms-tariff-config:
@@ -64,8 +72,10 @@ services:
       - JWT_SECRET=una_clave_secreta_muy_larga_y_segura_2025
       - AUTH_SERVICE_URL=http://ms-user-auth:3002/api/v1/auth
     depends_on:
-      - postgres_db
-      - ms-user-auth
+      postgres_db:
+        condition: service_healthy
+      ms-user-auth:
+        condition: service_started
 
   # 5. Microservicio Operation Ticket
   ms-operation-ticket:
@@ -75,7 +85,6 @@ services:
       - "3004:3004"
     environment:
       - PORT=3004
-      - FINANCIAL_SERVICE_URL=http://ms-financial-cash:3005/api/v1
       - DB_HOST=postgres_db
       - DB_NAME=parking_master
       - DB_USER=user_dev
@@ -84,10 +93,14 @@ services:
       - AUTH_SERVICE_URL=http://ms-user-auth:3002/api/v1/auth
       - TARIFF_SERVICE_URL=http://ms-tariff-config:3003/api/v1/tariffs
       - BRANCH_SERVICE_URL=http://ms-core-branch:3001/api/v1/branches
+      - FINANCIAL_SERVICE_URL=http://ms-financial-cash:3005/api/v1/financial
     depends_on:
-      - postgres_db
-      - ms-user-auth
-      - ms-tariff-config
+      postgres_db:
+        condition: service_healthy
+      ms-user-auth:
+        condition: service_started
+      ms-tariff-config:
+        condition: service_started
 
   # 6. Microservicio Financial Cash
   ms-financial-cash:
@@ -97,7 +110,6 @@ services:
       - "3005:3005"
     environment:
       - PORT=3005
-      - TICKET_SERVICE_URL=http://ms-operation-ticket:3004/api/v1/tickets
       - DB_HOST=postgres_db
       - DB_NAME=parking_master
       - DB_USER=user_dev
@@ -106,8 +118,10 @@ services:
       - AUTH_SERVICE_URL=http://ms-user-auth:3002/api/v1/auth
       - TICKET_SERVICE_URL=http://ms-operation-ticket:3004/api/v1/tickets
     depends_on:
-      - postgres_db
-      - ms-operation-ticket
+      postgres_db:
+        condition: service_healthy
+      ms-operation-ticket:
+        condition: service_started
 
   # 7. Microservicio Reporting
   ms-reporting:
@@ -123,11 +137,14 @@ services:
       - DB_PASS=secret_password
       - JWT_SECRET=una_clave_secreta_muy_larga_y_segura_2025
       - AUTH_SERVICE_URL=http://ms-user-auth:3002/api/v1/auth
+      - FINANCIAL_SERVICE_URL=http://ms-financial-cash:3005/api/v1/financial
     depends_on:
-      - postgres_db
-      - ms-user-auth
+      postgres_db:
+        condition: service_healthy
+      ms-user-auth:
+        condition: service_started
 
-# 8. API Gateway (Nginx)
+  # 8. API Gateway (Nginx)
   api-gateway:
     image: nginx:alpine
     container_name: api-gateway

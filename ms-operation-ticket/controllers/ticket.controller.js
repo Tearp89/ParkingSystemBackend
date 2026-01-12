@@ -48,21 +48,28 @@ exports.listActive = async (req, res) => {
 /**
  * CU-05: Calcular importe (Paso 1 de salida)
  */
+// ms-operation-ticket/controllers/ticket.controller.js
+
 exports.calculateExit = async (req, res) => {
     try {
         const { ticketId } = req.params;
         
-        // Extraemos el token JWT que el frontend envió en los headers
-        const userToken = req.headers.authorization; 
+        // ¡IMPORTANTE! Al ser GET con ?, usamos req.query
+        const { tariff_id } = req.query; 
         
-        if (!userToken) {
-            return res.status(401).json({ error: "No se proporcionó token de autorización." });
-        }
+        console.log("📥 Recibido ticketId:", ticketId);
+        console.log("📥 Recibido tariff_id desde query:", tariff_id);
 
-        const result = await ticketService.processExit(ticketId, userToken);
+        const userToken = req.headers.authorization; 
+        if (!userToken) return res.status(401).json({ error: "No token" });
+
+        // Pasamos el tariff_id al servicio. 
+        // Si es undefined, el servicio usará la tarifa por defecto del ticket.
+        const result = await ticketService.processExit(ticketId, userToken, tariff_id);
         
         res.status(200).json(result);
     } catch (error) {
+        console.error("❌ Error en calculateExit:", error.message);
         res.status(400).json({ error: error.message });
     }
 };
@@ -134,9 +141,18 @@ exports.voidTicket = async (req, res) => {
 
 exports.calculateAmount = async (req, res) => {
     try {
-        const { branch_id, vehicle_type_id, entry_time } = req.body;
-        // Llama a la lógica que ya tienes en tu service
-        const result = await tariffService.calculateAmount(branch_id, vehicle_type_id, entry_time);
+        // Desestructuramos el tariff_id que viene del select del frontend
+        // y el entry_time que sacamos de la info del ticket
+        const { tariff_id, entry_time } = req.body;
+
+        // Validación de seguridad
+        if (!tariff_id) {
+            return res.status(400).json({ error: "El ID de tarifa es obligatorio para calcular el monto." });
+        }
+
+        // Llamamos al servicio pasando los nuevos parámetros
+        const result = await tariffService.calculateAmount(tariff_id, entry_time);
+        
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });

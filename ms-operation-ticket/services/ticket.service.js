@@ -70,39 +70,31 @@ class TicketService {
          * CU-05: Calcular cobro y preparar salida
          * CORRECCIÓN DE RUTA: Eliminamos el "/tariffs" extra para evitar el error 404
          */
-    async processExit(ticketId, userToken) {
-        const ticket = await db.Ticket.findByPk(ticketId);
-        if (!ticket || ticket.status !== 'ACTIVE') {
-            throw new Error("Ticket no válido o ya procesado.");
-        }
+    // Añadimos manualTariffId como tercer parámetro
+// Añadimos manualTariffId al final
+async processExit(ticketId, userToken, manualTariffId = null) {
+    const ticket = await db.Ticket.findByPk(ticketId);
+    if (!ticket) throw new Error("Ticket no encontrado");
 
-        try {
-            // CORRECCIÓN: Si this.TARIFF_SVC ya es .../api/v1/tariffs, 
-            // solo concatenamos /calculate
-            const response = await axios.post(`${this.TARIFF_SVC}/calculate`, {
-                branch_id: ticket.branch_id,
-                entry_time: ticket.entry_time,
-                vehicle_type_id: ticket.vehicle_type_id // normal, moto, pcd, ev
-            }, {
-                headers: {
-                    'Authorization': userToken // Reenvío del token para autorizar la llamada interna
-                }
-            });
+    // Si recibimos manualTariffId lo usamos, si no, usamos el del ticket
+    const tariffToUse = manualTariffId || ticket.tariff_id;
 
-            const { total_amount, stay_minutes, tariff_id } = response.data;
+    // Llamada al microservicio de tarifas
+    const response = await axios.post(`${this.TARIFF_SVC}/calculate`, {
+        tariff_id: tariffToUse, // Ahora enviamos el ID específico
+        entry_time: ticket.entry_time,
+        branch_id: ticket.branch_id
+    }, {
+        headers: { 'Authorization': userToken }
+    });
 
-            ticket.total_amount = total_amount;
-            ticket.exit_time = new Date();
-            ticket.tariff_id = tariff_id;
-            await ticket.save();
-
-            return { ticket, stay_minutes, total_amount };
-        } catch (error) {
-            console.error("Error detallado del calculador:", error.response?.data);
-            const errorMsg = error.response?.data?.message || error.response?.data?.error || "Error al calcular tarifa";
-            throw new Error(errorMsg);
-        }
-    }
+    return {
+        ticket,
+        total_amount: response.data.total_amount,
+        stay_minutes: response.data.stay_minutes,
+        tariff_id: response.data.tariff_id
+    };
+}
 
     /**
      * CU-05: Confirmar pago y cerrar ticket

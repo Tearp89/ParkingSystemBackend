@@ -4,6 +4,7 @@ module.exports = (sequelize) => {
   const Tariff = sequelize.define('Tariff', {
     tariff_id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     branch_id: { type: DataTypes.UUID, allowNull: false }, 
+    name: { type: DataTypes.STRING, allowNull: false, defaultValue: 'Tarifa Estándar' },
     
     // Cambiado a STRING para coincidir con el frontend ('moto', 'normal', etc.)
     vehicle_type_id: { type: DataTypes.STRING, allowNull: false }, 

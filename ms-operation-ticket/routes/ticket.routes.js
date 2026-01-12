@@ -6,7 +6,7 @@ const { verifyJWT, authorize } = require('../middleware/auth.middleware');
 // --- CU-03: Registrar entrada ---
 router.post('/entry', 
     verifyJWT, 
-    authorize('ADMIN', 'CASHIER'), 
+    authorize('ADMIN', 'SUPERVISOR', 'CASHIER'), 
     ticketController.entry
 );
 
@@ -22,14 +22,14 @@ router.get('/active/:branchId',
 // Paso 1: Obtener cálculo de tiempo y costo
 router.get('/exit-calculation/:ticketId', 
     verifyJWT, 
-    authorize('ADMIN', 'CASHIER'), 
+    authorize('SUPERVISOR', 'CASHIER'), 
     ticketController.calculateExit
 );
 
 // Paso 2: Confirmar el cobro y cerrar el ticket
 router.post('/payment/:ticketId', 
     verifyJWT, 
-    authorize('ADMIN', 'CASHIER'), 
+    authorize('SUPERVISOR', 'CASHIER'), 
     ticketController.confirmPayment
 );
 
@@ -42,6 +42,7 @@ router.put('/void/:ticketId',
 );
 
 router.post('/calculate', ticketController.calculateAmount);
+
 
 // ¡ESTA LÍNEA ES VITAL!
 module.exports = router;

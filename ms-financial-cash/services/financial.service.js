@@ -42,37 +42,53 @@ async registerPayment(paymentData) {
 }
 
 
-    async generateCashCut(branchId, userId, reportedAmount, type = 'USER') {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+async generateCashCut(branchId, userId, reportedAmount, type = 'USER') {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-        const whereClause = { 
-            branch_id: branchId,
-            transaction_date: { [Op.gte]: today }
-        };
+    // 1. Definir el filtro de búsqueda
+    const whereClause = { 
+        branch_id: branchId,
+        cash_closing_id: null // Solo lo que no se ha cortado
+    };
 
-        // Si es corte por usuario, filtramos solo lo que él cobró
-        if (type === 'USER') {
-            whereClause.user_id = userId;
-        }
-
-        // 1. Calcular lo que el sistema dice que debería haber
-        const totalExpected = await db.Payment.sum('amount', { where: whereClause }) || 0;
-
-        // 2. Calcular diferencia
-        const difference = parseFloat(reportedAmount) - parseFloat(totalExpected);
-
-        // 3. Crear el registro del corte (se guarda quién lo ejecutó)
-        return await db.CashCut.create({
-            user_id: type === 'USER' ? userId : null, // El responsable
-            branch_id: branchId,
-            type: type,
-            total_expected: totalExpected,
-            total_reported: reportedAmount,
-            difference: difference,
-            status: 'CLOSED'
-        });
+    // Si es corte individual, filtramos por el cajero
+    if (type === 'USER') {
+        whereClause.user_id = userId;
     }
+
+    // 2. Calcular lo que el sistema dice que debería haber
+    const transactions = await db.Payment.findAll({ where: whereClause });
+    const totalExpected = transactions.reduce((acc, p) => acc + Number(p.amount), 0);
+
+    // 3. Calcular diferencia
+    const difference = parseFloat(reportedAmount) - parseFloat(totalExpected);
+
+    // 4. Crear el registro del corte (se guarda quién lo ejecutó)
+    const cut = await db.CashCut.create({
+        user_id: userId, // Siempre guardamos quién lo hizo
+        branch_id: branchId,
+        type: type,
+        total_expected: totalExpected,
+        total_reported: reportedAmount,
+        difference: difference,
+        status: 'CLOSED'
+    });
+
+    // --- EL PASO CLAVE: Marcamos los pagos como cerrados ---
+    if (transactions.length > 0) {
+        await db.Payment.update(
+            { cash_closing_id: cut.cut_id }, // Vinculamos al ID del corte recién creado
+            { 
+                where: { 
+                    payment_id: transactions.map(t => t.payment_id) 
+                } 
+            }
+        );
+    }
+
+    return cut;
+}
 }
 
 module.exports = new FinancialService();

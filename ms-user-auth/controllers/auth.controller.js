@@ -1,5 +1,6 @@
 
 const authService = require('../services/auth.service');
+const db = require('../models');
 
 exports.login = async (req, res) => {
     const { username, password } = req.body;
@@ -91,5 +92,22 @@ exports.deleteUser = async (req, res) => {
         res.status(200).json({ message: 'Usuario dado de baja con éxito' });
     } catch (error) {
         res.status(400).json({ message: error.message });
+    }
+};
+
+exports.checkSystemStatus = async (req, res) => {
+    try {
+        // Esto ejecutará internamente: SELECT count(*) FROM "User";
+        const adminCount = await db.User.count({
+            where: { role: 'ADMIN' }
+        });
+
+        console.log(`Verificando sistema: ${adminCount} administradores encontrados.`);
+
+        res.status(200).json({ 
+            isFirstRun: adminCount === 0 
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };
