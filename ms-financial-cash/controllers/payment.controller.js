@@ -1,5 +1,6 @@
 const db = require('../models');
 const financialService = require('../services/financial.service');
+const { Op } = require('sequelize');
 
 exports.pay = async (req, res) => {
     try {
@@ -66,41 +67,41 @@ exports.getHistory = async (req, res) => {
 exports.getPendingSummary = async (req, res) => {
     try {
         const { branchId } = req.params;
-        console.log("🔎 Buscando resumen para sucursal:", branchId);
 
-        // Paso a paso para detectar dónde truena
-        if (!db.Payment) {
-            console.error("❌ ERROR: El modelo db.Payment no está cargado.");
-            return res.status(500).json({ error: "Modelo Payment no encontrado" });
-        }
-
-        const pending = await db.Payment.findAll({
-            where: { 
-                branch_id: branchId, 
-                cash_closing_id: null 
-            }
+        // 1. Buscamos el último corte GENERAL para saber desde cuándo contar
+        const lastClosing = await db.CashCut.findOne({
+            where: { branch_id: branchId, type: 'GENERAL' },
+            order: [['createdAt', 'DESC']]
         });
 
-        console.log(`✅ Se encontraron ${pending.length} transacciones.`);
+        const startTime = lastClosing ? lastClosing.createdAt : new Date(0);
 
-        const total_cash = pending
-            .filter(p => p.method === 'CASH')
-            .reduce((acc, p) => acc + Number(p.amount), 0);
+        // 2. Buscamos PAGOS que no tengan un cierre GENERAL asignado
+        // Importante: No filtramos por cash_closing_id: null porque queremos incluir 
+        // los tickets que ya cerró el cajero pero NO el supervisor.
+        const payments = await db.Payment.findAll({
+            where: {
+                branch_id: branchId,
+                createdAt: { [db.Sequelize.Op.gt]: startTime }
+            },
+            include: [{ model: db.CashCut, as: 'CashClosing', required: false }]
+        });
 
-        const total_card = pending
-            .filter(p => p.method === 'CARD')
-            .reduce((acc, p) => acc + Number(p.amount), 0);
+        // Solo procesamos pagos que NO estén vinculados a un corte tipo 'GENERAL'
+        const valid = payments.filter(p => !p.CashClosing || p.CashClosing.type === 'USER');
 
-        res.json({ 
-            total: total_cash + total_card, 
-            total_cash, 
-            total_card, 
-            count: pending.length 
+        const total_cash = valid.filter(p => p.method === 'CASH').reduce((acc, p) => acc + Number(p.amount), 0);
+        const total_card = valid.filter(p => p.method === 'CARD').reduce((acc, p) => acc + Number(p.amount), 0);
+
+        res.json({
+            total_cash,
+            total_card,
+            total: total_cash + total_card,
+            count: valid.length,
+            lastClosingDate: lastClosing ? lastClosing.createdAt : null
         });
     } catch (e) {
-        // ESTO ES LO QUE NECESITAMOS VER EN EL LOG:
-        console.error("🔥 Error crítico en getPendingSummary:", e); 
-        res.status(500).json({ error: e.message, stack: e.stack });
+        res.status(500).json({ error: e.message });
     }
 };
 
@@ -109,44 +110,61 @@ exports.createGeneralClosing = async (req, res) => {
         const { branch_id } = req.body;
         const supervisor_id = req.user.user_id;
 
-        // 1. Buscar transacciones pendientes
-        const transactions = await db.Payment.findAll({
-            where: {
-                branch_id,
-                cash_closing_id: null
-            }
+        // 1. Buscamos tickets "sueltos" (que no tienen ningún corte)
+        const pendingPayments = await db.Payment.findAll({
+            where: { branch_id, cash_closing_id: null }
         });
 
-        if (transactions.length === 0) {
-            return res.status(400).json({ message: "No hay transacciones pendientes para corte." });
+        // 2. Buscamos cortes de usuarios que no se han incluido en un general
+        const userCuts = await db.CashCut.findAll({
+            where: { branch_id, type: 'USER', parent_cut_id: null }
+        });
+
+        if (pendingPayments.length === 0 && userCuts.length === 0) {
+            return res.status(400).json({ message: "No hay nada pendiente por cerrar en esta sucursal." });
         }
 
-        const total = transactions.reduce((acc, p) => acc + Number(p.amount), 0);
+        // 3. Calculamos el total (Suma de tickets sueltos + Suma de cortes de usuario)
+        const totalPayments = pendingPayments.reduce((acc, p) => acc + Number(p.amount), 0);
+        const totalUserCuts = userCuts.reduce((acc, c) => acc + Number(c.total_reported), 0);
+        const finalTotal = totalPayments + totalUserCuts;
 
-        // 2. CORRECCIÓN: Usar db.CashCut (que es tu modelo único)
-        const closing = await db.CashCut.create({
+        // 4. Creamos el registro del Corte General
+        const generalClosing = await db.CashCut.create({
             branch_id,
-            user_id: supervisor_id, // Evita el error NOT NULL
-            total_expected: total,
-            total_reported: total,
-            difference: 0,
-            type: 'GENERAL', // Aquí aplicamos tu ENUM
+            user_id: supervisor_id,
+            total_expected: finalTotal,
+            total_reported: finalTotal,
+            type: 'GENERAL',
             status: 'CLOSED'
         });
 
-        // 3. Vincular transacciones al ID del corte
-        // Nota: Si tu modelo CashCut usa 'cut_id' como PK, usa closing.cut_id
-        await db.Payment.update(
-            { cash_closing_id: closing.cut_id }, 
-            { where: { payment_id: transactions.map(t => t.payment_id) } }
-        );
+        // 5. VINCULACIÓN:
+        // A. A los tickets sueltos les ponemos el ID del corte general
+        if (pendingPayments.length > 0) {
+            await db.Payment.update(
+                { cash_closing_id: generalClosing.cut_id },
+                { where: { payment_id: pendingPayments.map(p => p.payment_id) } }
+            );
+        }
+
+        // B. A los cortes de usuario les ponemos el ID del corte general (parent_cut_id)
+        if (userCuts.length > 0) {
+            await db.CashCut.update(
+                { parent_cut_id: generalClosing.cut_id },
+                { where: { cut_id: userCuts.map(c => c.cut_id) } }
+            );
+        }
 
         res.status(201).json({ 
-            message: "Corte general realizado exitosamente", 
-            closing 
+            message: "Corte General completado exitosamente", 
+            total: finalTotal,
+            ticketsCerrados: pendingPayments.length,
+            cortesUsuariosCerrados: userCuts.length
         });
-    } catch (error) {
-        console.error("🔥 Error en createGeneralClosing:", error);
-        res.status(500).json({ error: error.message });
+
+    } catch (e) {
+        console.error("Error en General Closing:", e);
+        res.status(500).json({ error: e.message });
     }
 };

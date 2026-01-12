@@ -3,6 +3,10 @@ const { DataTypes } = require('sequelize');
 module.exports = (sequelize) => {
   return sequelize.define('CashCut', {
     cut_id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    parent_cut_id: {
+      type: DataTypes.UUID,
+      allowNull: true, // Muy importante que sea true
+    },
     user_id: { type: DataTypes.UUID, allowNull: false }, 
     branch_id: { type: DataTypes.UUID, allowNull: false },
     type: { 

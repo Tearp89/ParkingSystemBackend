@@ -17,6 +17,16 @@ const db = {
   CashCut
 };
 
+db.Payment.belongsTo(db.CashCut, {
+  foreignKey: 'cash_closing_id',
+  as: 'CashClosing' // Este nombre debe coincidir con el 'as' del controlador
+});
+
+// Un corte de caja tiene muchos pagos
+db.CashCut.hasMany(db.Payment, {
+  foreignKey: 'cash_closing_id'
+});
+
 // Configurar relaciones (si las hubiera en el futuro)
 // Object.keys(db).forEach(modelName => {
 //   if (db[modelName].associate) {
