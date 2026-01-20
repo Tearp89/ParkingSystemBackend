@@ -21,6 +21,21 @@ exports.getCalculation = async (req, res) => {
     }
 };
 
+exports.getById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tariff = await Tariff.findByPk(id);
+    
+    if (!tariff) {
+      return res.status(404).json({ error: "Tarifa no encontrada" });
+    }
+    
+    res.json(tariff);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 exports.getHistory = async (req, res) => {
     try {
         const history = await db.Tariff.findAll({

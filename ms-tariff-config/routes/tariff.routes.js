@@ -10,5 +10,6 @@ router.post('/calculate', verifyJWT, tariffController.getCalculation);
 router.get('/history/:branchId', verifyJWT, authorize('ADMIN', 'SUPERVISOR'), tariffController.getHistory);
 router.patch('/:id/status', verifyJWT, tariffController.updateStatus);
 router.get('/active/:branchId', verifyJWT, authorize('CASHIER', 'SUPERVISRO'), tariffController.getActiveByBranch);
+router.get('/:id', tariffController.getById);
 
 module.exports = router;

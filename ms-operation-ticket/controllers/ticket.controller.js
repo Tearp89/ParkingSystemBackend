@@ -7,7 +7,7 @@ const axios = require('axios');
 exports.entry = async (req, res) => {
     try {
         
-        const { branch_id, vehicle_plate, spot_id, vehicle_type_id } = req.body;
+        const { branch_id, vehicle_plate, spot_id, vehicle_type_id, tariff_id } = req.body;
         
         
         if (!vehicle_type_id) {
@@ -18,7 +18,8 @@ exports.entry = async (req, res) => {
             branch_id, 
             vehicle_plate, 
             spot_id, 
-            vehicle_type_id 
+            vehicle_type_id,
+            tariff_id 
         );
         
         res.status(201).json({
@@ -27,6 +28,9 @@ exports.entry = async (req, res) => {
         });
     } catch (error) {
         res.status(400).json({ error: error.message });
+        console.log("DATA DEL ERROR:", error);
+        console.error(error);
+        //showMsg(err.response?.data?.message || "Error 400: Datos inválidos", "error");
     }
 };
 

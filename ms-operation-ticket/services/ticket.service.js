@@ -9,9 +9,10 @@ class TicketService {
     }
 
     /**
-     * CU-03: Registrar entrada de vehículo
-     */
-    async registerEntry(branchId, plate, spotId, vehicleTypeId) {
+ * CU-03: Registrar entrada de vehículo
+ */
+    // 1. Agregamos tariffId a la lista de parámetros
+    async registerEntry(branchId, plate, spotId, vehicleTypeId, tariffId) {
         const active = await db.Ticket.findOne({
             where: { vehicle_plate: plate, status: 'ACTIVE' }
         });
@@ -22,22 +23,23 @@ class TicketService {
         });
         if (spotOccupied) throw new Error("Este lugar acaba de ser ocupado. Elige otro.");
 
+        // 2. Agregamos tariff_id al objeto que se guarda en la base de datos
         const ticket = await db.Ticket.create({
             branch_id: branchId,
             vehicle_plate: plate,
             spot_id: spotId,
             vehicle_type_id: vehicleTypeId,
+            tariff_id: tariffId, // <--- ESTO ES LO QUE SOLUCIONA EL ERROR
             status: 'ACTIVE',
             entry_time: new Date()
         });
 
         try {
-            console.log(spotId);
+            console.log("Sincronizando ocupación para spot:", spotId);
             await axios.put(`${this.BRANCH_SVC}/spots/${spotId}/occupancy`, {
                 isOccupied: true
             });
         } catch (error) {
-            console.error("URL intentada:", `${this.BRANCH_SVC}/spots/${spotId}/occupancy`);
             console.error("Error al sincronizar ocupación:", error.message);
         }
 
@@ -61,13 +63,18 @@ class TicketService {
 
     /**
          * CU-05: Calcular cobro y preparar salida
-         * CORRECCIÓN DE RUTA: Eliminamos el "/tariffs" extra para evitar el error 404
          */
-async processExit(ticketId, userToken, manualTariffId = null) {
+    async processExit(ticketId, userToken, manualTariffId = null) {
     const ticket = await db.Ticket.findByPk(ticketId);
     if (!ticket) throw new Error("Ticket no encontrado");
 
     const tariffToUse = manualTariffId || ticket.tariff_id;
+
+    if (!tariffToUse) {
+        throw new Error("El ticket no tiene una tarifa asignada. Seleccione una manualmente.");
+    }
+
+    console.log(`🚀 Calculando con tarifa: ${tariffToUse} para el ticket: ${ticketId}`);
 
     const response = await axios.post(`${this.TARIFF_SVC}/calculate`, {
         tariff_id: tariffToUse, 
@@ -81,7 +88,7 @@ async processExit(ticketId, userToken, manualTariffId = null) {
         ticket,
         total_amount: response.data.total_amount,
         stay_minutes: response.data.stay_minutes,
-        tariff_id: response.data.tariff_id
+        tariff_id: tariffToUse
     };
 }
 
@@ -89,36 +96,36 @@ async processExit(ticketId, userToken, manualTariffId = null) {
      * CU-05: Confirmar pago y cerrar ticket
      */
     async confirmPayment(ticketId, paymentData) {
-    const ticket = await db.Ticket.findByPk(ticketId);
-    if (!ticket) throw new Error("Ticket no encontrado.");
+        const ticket = await db.Ticket.findByPk(ticketId);
+        if (!ticket) throw new Error("Ticket no encontrado.");
 
-    const updatedTicket = await ticket.update({
-        status: 'PAID',
-        exit_time: paymentData.exit_time || new Date(),
-        total_amount: paymentData.total_amount
-    });
-
-    try {
-        const FINANCIAL_SVC = process.env.FINANCIAL_SERVICE_URL || 'http://localhost:3006/api/v1/financial';
-        await axios.post(`${FINANCIAL_SVC}/pay`, {
-            ticket_id: ticketId,
-            amount: paymentData.total_amount,
-            method: paymentData.method,
-            branch_id: ticket.branch_id, 
-            user_id: paymentData.user_id   
+        const updatedTicket = await ticket.update({
+            status: 'PAID',
+            exit_time: paymentData.exit_time || new Date(),
+            total_amount: paymentData.total_amount
         });
-    } catch (error) {
-        console.error("Error al registrar en finanzas:", error.message);
-    }
 
-    try {
-        await axios.put(`${this.BRANCH_SVC}/spots/${ticket.spot_id}/occupancy`, { isOccupied: false });
-    } catch (error) {
-        console.error("Error al liberar lugar:", error.message);
-    }
+        try {
+            const FINANCIAL_SVC = process.env.FINANCIAL_SERVICE_URL || 'http://localhost:3006/api/v1/financial';
+            await axios.post(`${FINANCIAL_SVC}/pay`, {
+                ticket_id: ticketId,
+                amount: paymentData.total_amount,
+                method: paymentData.method,
+                branch_id: ticket.branch_id,
+                user_id: paymentData.user_id
+            });
+        } catch (error) {
+            console.error("Error al registrar en finanzas:", error.message);
+        }
 
-    return updatedTicket;
-}
+        try {
+            await axios.put(`${this.BRANCH_SVC}/spots/${ticket.spot_id}/occupancy`, { isOccupied: false });
+        } catch (error) {
+            console.error("Error al liberar lugar:", error.message);
+        }
+
+        return updatedTicket;
+    }
 
     /**
      * CU-06: Anular ticket (Supervisor)

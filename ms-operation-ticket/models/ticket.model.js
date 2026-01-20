@@ -5,6 +5,7 @@ module.exports = (sequelize) => {
     ticket_id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     branch_id: { type: DataTypes.UUID, allowNull: false },
     spot_id: { type: DataTypes.UUID, allowNull: false },
+    tariff_id: { type: DataTypes.UUID, allowNull: false },
     vehicle_type_id: { type: DataTypes.STRING, allowNull: false },
     vehicle_plate: { type: DataTypes.STRING, allowNull: false }, 
     entry_time: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
